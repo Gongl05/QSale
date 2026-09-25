@@ -11,8 +11,8 @@
 	<groupId>com.example</groupId>
 	<artifactId>qsale</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+	<name>QSale</name>
+	<description>Backend for QSale, a platform to coordinate group plans</description>
 	<url/>
 	<licenses>
 		<license/>
