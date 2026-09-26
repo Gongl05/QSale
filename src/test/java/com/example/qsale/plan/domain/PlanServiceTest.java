@@ -13,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.modelmapper.ModelMapper;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -40,13 +41,15 @@ class PlanServiceTest {
     private UserService userService;
     @Mock
     private ModelMapper modelMapper;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private PlanService planService;
 
     @BeforeEach
     void setUp() {
         planService = new PlanService(planRepository, planAccessService, feasibilityService,
-                planOptionService, userService, modelMapper);
+                planOptionService, userService, modelMapper, eventPublisher);
     }
 
     @Test

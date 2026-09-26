@@ -55,6 +55,7 @@ public class PlanService {
     }
 
     public PlanPageResponseDto getMyPlans(PlanStatus status, int page, int size) {
+        validatePagination(page, size);
         User user = userService.getCurrentUser();
         Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), Sort.by("createdAt").descending());
         Page<Plan> plans = status == null
@@ -129,6 +130,15 @@ public class PlanService {
             code = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         } while (planRepository.existsByInviteCode(code));
         return code;
+    }
+
+    private void validatePagination(int page, int size) {
+        if (page < 0) {
+            throw new InvalidOperationException("page must be greater than or equal to 0");
+        }
+        if (size < 1) {
+            throw new InvalidOperationException("size must be greater than or equal to 1");
+        }
     }
 
     private void validateDates(PlanRequestDto dto) {
