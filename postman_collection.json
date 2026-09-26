@@ -1,0 +1,3807 @@
+{
+  "info": {
+    "name": "QSale API",
+    "description": "Documentación y pruebas del backend de QSale (CS 2031 DBP 2026-2): coordinación de planes grupales con invitaciones, votación de fechas y lugares, disponibilidad, nivel de compromiso y semáforo de viabilidad.\n\n**Cómo usarla:** levantar `docker compose up -d` y la app, y ejecutar las carpetas en orden (o todo con el Collection Runner). Cada request guarda en variables de la colección los tokens e ids que usan los siguientes. Con `DDL_AUTO=create-drop` la base se recrea al reiniciar la app.\n\n**Autorización:** Bearer `{{token}}` (organizadora Ana) configurado a nivel de colección. Los requests del invitado usan `{{guestToken}}` y los de administración `{{adminToken}}`. Los endpoints de auth y el health check van sin token.\n\n**Variables:** `hostUrl` (cambiarla por la URL del deploy), `baseUrl`, credenciales de prueba y los ids que se van guardando.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const date = new Date();",
+          "date.setDate(date.getDate() + 14);",
+          "pm.collectionVariables.set(\"futureDate\", date.toISOString().slice(0, 10));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "hostUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "baseUrl",
+      "value": "{{hostUrl}}/api/v1"
+    },
+    {
+      "key": "organizerEmail",
+      "value": "ana@utec.edu.pe"
+    },
+    {
+      "key": "guestEmail",
+      "value": "bob@utec.edu.pe"
+    },
+    {
+      "key": "password",
+      "value": "Secret123"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@qsale.com"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Admin1234"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "guestToken",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "guestUserId",
+      "value": ""
+    },
+    {
+      "key": "adminUserId",
+      "value": ""
+    },
+    {
+      "key": "planId",
+      "value": ""
+    },
+    {
+      "key": "inviteCode",
+      "value": ""
+    },
+    {
+      "key": "dateOptionId",
+      "value": ""
+    },
+    {
+      "key": "placeOptionId",
+      "value": ""
+    },
+    {
+      "key": "availabilityId",
+      "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    },
+    {
+      "key": "secondPlanId",
+      "value": ""
+    },
+    {
+      "key": "tempOptionId",
+      "value": ""
+    },
+    {
+      "key": "tempAvailabilityId",
+      "value": ""
+    },
+    {
+      "key": "futureDate",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health",
+      "description": "Verifica que el backend esté arriba antes de correr el resto.",
+      "item": [
+        {
+          "id": "qsale-001",
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Estado UP\", () => pm.expect(pm.response.json().status).to.eql(\"UP\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{hostUrl}}/actuator/health",
+            "description": "Endpoint público de Spring Boot Actuator. La plataforma de deploy lo usa para saber si la app está viva.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{hostUrl}}/actuator/health",
+                "description": "Endpoint público de Spring Boot Actuator. La plataforma de deploy lo usa para saber si la app está viva.",
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"groups\": [\n    \"liveness\",\n    \"readiness\"\n  ],\n  \"status\": \"UP\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Auth",
+      "description": "Registro, login y refresh token. Son públicos: no llevan token.",
+      "item": [
+        {
+          "id": "qsale-002",
+          "name": "Sign up (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 o 409\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/signup",
+            "description": "Crea una cuenta con rol USER (password con BCrypt, mínimo 8 caracteres con mayúscula, minúscula y número) y devuelve access + refresh token. Dispara el evento UserRegisteredEvent, que envía el correo de bienvenida de forma asíncrona. 409 si el email ya existe.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana Torres\",\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/signup",
+                "description": "Crea una cuenta con rol USER (password con BCrypt, mínimo 8 caracteres con mayúscula, minúscula y número) y devuelve access + refresh token. Dispara el evento UserRegisteredEvent, que envía el correo de bienvenida de forma asíncrona. 409 si el email ya existe.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Ana Torres\",\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\",\n  \"refreshToken\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-003",
+          "name": "Sign up (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 o 409\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/signup",
+            "description": "Segundo usuario, que participará en el plan como invitado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bob Diaz\",\n  \"email\": \"{{guestEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/signup",
+                "description": "Segundo usuario, que participará en el plan como invitado.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Bob Diaz\",\n  \"email\": \"{{guestEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\",\n  \"refreshToken\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-004",
+          "name": "Sign in (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"token\", json.token);",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/signin",
+            "description": "Login con AuthenticationManager + BCrypt. Guarda el access token en {{token}}, que es la auth por defecto de toda la colección. El JWT lleva los claims sub (email), userId, role y type.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/signin",
+                "description": "Login con AuthenticationManager + BCrypt. Guarda el access token en {{token}}, que es la auth por defecto de toda la colección. El JWT lleva los claims sub (email), userId, role y type.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\",\n  \"refreshToken\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-005",
+          "name": "Sign in (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"guestToken\", json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/signin",
+            "description": "Guarda el token del invitado en {{guestToken}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{guestEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/signin",
+                "description": "Guarda el token del invitado en {{guestToken}}.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{guestEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\",\n  \"refreshToken\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-006",
+          "name": "Sign in (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"adminToken\", json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/signin",
+            "description": "El usuario ADMIN lo crea data.sql al arrancar. Guarda su token en {{adminToken}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/signin",
+                "description": "El usuario ADMIN lo crea data.sql al arrancar. Guarda su token en {{adminToken}}.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\",\n  \"refreshToken\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-007",
+          "name": "Refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"token\", json.token);",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/refresh",
+            "description": "Entrega un nuevo par de tokens a partir del refresh token (válido 7 días; el access token dura 1 hora). Un refresh token no sirve como access token: el filtro JWT revisa el claim type.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/refresh",
+                "description": "Entrega un nuevo par de tokens a partir del refresh token (válido 7 días; el access token dura 1 hora). Un refresh token no sirve como access token: el filtro JWT revisa el claim type.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\",\n  \"refreshToken\": \"eyJhbGciOiJIUzI1NiJ9.<payload>.<signature>\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Users",
+      "description": "Perfil propio y administración de usuarios.",
+      "item": [
+        {
+          "id": "qsale-008",
+          "name": "Mi perfil (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/me",
+            "description": "Datos del usuario autenticado, obtenido desde el SecurityContext. Nunca incluye el password."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/users/me",
+                "description": "Datos del usuario autenticado, obtenido desde el SecurityContext. Nunca incluye el password."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"createdAt\": \"2026-09-25T20:51:43.921411\",\n  \"email\": \"ana@utec.edu.pe\",\n  \"id\": 2,\n  \"location\": null,\n  \"name\": \"Ana Torres\",\n  \"role\": \"USER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-009",
+          "name": "Actualizar mi perfil (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me",
+            "description": "Actualiza nombre y ubicación aproximada. La ubicación se usa para calcular la distancia promedio del grupo a cada lugar propuesto, y solo la ve el propio usuario.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana Torres\",\n  \"location\": {\n    \"latitude\": -12.1211,\n    \"longitude\": -77.0297,\n    \"address\": \"Av. Larco 345\",\n    \"district\": \"Miraflores\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/users/me",
+                "description": "Actualiza nombre y ubicación aproximada. La ubicación se usa para calcular la distancia promedio del grupo a cada lugar propuesto, y solo la ve el propio usuario.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Ana Torres\",\n  \"location\": {\n    \"latitude\": -12.1211,\n    \"longitude\": -77.0297,\n    \"address\": \"Av. Larco 345\",\n    \"district\": \"Miraflores\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"createdAt\": \"2026-09-25T20:51:43.921411\",\n  \"email\": \"ana@utec.edu.pe\",\n  \"id\": 2,\n  \"location\": {\n    \"address\": \"Av. Larco 345\",\n    \"district\": \"Miraflores\",\n    \"latitude\": -12.1211,\n    \"longitude\": -77.0297\n  },\n  \"name\": \"Ana Torres\",\n  \"role\": \"USER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-010",
+          "name": "Mi perfil (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"guestUserId\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/me",
+            "description": "Perfil del invitado. Guarda su id en {{guestUserId}}.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/users/me",
+                "description": "Perfil del invitado. Guarda su id en {{guestUserId}}.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"createdAt\": \"2026-09-25T20:51:44.305651\",\n  \"email\": \"bob@utec.edu.pe\",\n  \"id\": 3,\n  \"location\": null,\n  \"name\": \"Bob Diaz\",\n  \"role\": \"USER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-011",
+          "name": "Actualizar mi perfil (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me",
+            "description": "Ubicación aproximada del invitado, para que el cálculo de distancias tenga dos orígenes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bob Diaz\",\n  \"location\": {\n    \"latitude\": -12.1492,\n    \"longitude\": -77.0215,\n    \"address\": \"Av. Grau 120\",\n    \"district\": \"Barranco\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/users/me",
+                "description": "Ubicación aproximada del invitado, para que el cálculo de distancias tenga dos orígenes.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Bob Diaz\",\n  \"location\": {\n    \"latitude\": -12.1492,\n    \"longitude\": -77.0215,\n    \"address\": \"Av. Grau 120\",\n    \"district\": \"Barranco\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"createdAt\": \"2026-09-25T20:51:44.305651\",\n  \"email\": \"bob@utec.edu.pe\",\n  \"id\": 3,\n  \"location\": {\n    \"address\": \"Av. Grau 120\",\n    \"district\": \"Barranco\",\n    \"latitude\": -12.1492,\n    \"longitude\": -77.0215\n  },\n  \"name\": \"Bob Diaz\",\n  \"role\": \"USER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-012",
+          "name": "[ADMIN] Listar usuarios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"adminUserId\", json.find(user => user.role === \"ADMIN\").id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/users",
+            "description": "Solo ADMIN: protegido a nivel de request (/api/v1/admin/** en SecurityConfig) y de método (@PreAuthorize(\"hasAuthority('ADMIN')\")).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/admin/users",
+                "description": "Solo ADMIN: protegido a nivel de request (/api/v1/admin/** en SecurityConfig) y de método (@PreAuthorize(\"hasAuthority('ADMIN')\")).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"createdAt\": \"2026-09-25T20:51:34.676776\",\n    \"email\": \"admin@qsale.com\",\n    \"id\": 1,\n    \"location\": null,\n    \"name\": \"Admin QSale\",\n    \"role\": \"ADMIN\"\n  },\n  {\n    \"createdAt\": \"2026-09-25T20:51:43.921411\",\n    \"email\": \"ana@utec.edu.pe\",\n    \"id\": 2,\n    \"location\": {\n      \"address\": \"Av. Larco 345\",\n      \"district\": \"Miraflores\",\n      \"latitude\": -12.1211,\n      \"longitude\": -77.0297\n    },\n    \"name\": \"Ana Torres\",\n    \"role\": \"USER\"\n  },\n  {\n    \"createdAt\": \"2026-09-25T20:51:44.305651\",\n    \"email\": \"bob@utec.edu.pe\",\n    \"id\": 3,\n    \"location\": {\n      \"address\": \"Av. Grau 120\",\n      \"district\": \"Barranco\",\n      \"latitude\": -12.1492,\n      \"longitude\": -77.0215\n    },\n    \"name\": \"Bob Diaz\",\n    \"role\": \"USER\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "id": "qsale-013",
+          "name": "[ADMIN] Cambiar rol",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/users/{{guestUserId}}/role",
+            "description": "Solo ADMIN. Cambia el rol de un usuario (USER / ADMIN); el rol se guarda en la base de datos y viaja en el JWT.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"USER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/admin/users/{{guestUserId}}/role",
+                "description": "Solo ADMIN. Cambia el rol de un usuario (USER / ADMIN); el rol se guarda en la base de datos y viaja en el JWT.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"role\": \"USER\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"createdAt\": \"2026-09-25T20:51:44.305651\",\n  \"email\": \"bob@utec.edu.pe\",\n  \"id\": 3,\n  \"location\": {\n    \"address\": \"Av. Grau 120\",\n    \"district\": \"Barranco\",\n    \"latitude\": -12.1492,\n    \"longitude\": -77.0215\n  },\n  \"name\": \"Bob Diaz\",\n  \"role\": \"USER\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Plans",
+      "description": "Creación y consulta de planes.",
+      "item": [
+        {
+          "id": "qsale-014",
+          "name": "Crear plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"planId\", json.id);",
+                  "    pm.collectionVariables.set(\"inviteCode\", json.inviteCode);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans",
+            "description": "Crea el plan, genera su código de invitación y agrega al creador como ORGANIZER. Guarda {{planId}} y {{inviteCode}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cena viernes\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"type\": \"DINNER\",\n  \"budget\": 60,\n  \"minParticipants\": 2,\n  \"tentativeStartDate\": \"{{futureDate}}\",\n  \"tentativeEndDate\": \"{{futureDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans",
+                "description": "Crea el plan, genera su código de invitación y agrega al creador como ORGANIZER. Guarda {{planId}} y {{inviteCode}}.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Cena viernes\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"type\": \"DINNER\",\n  \"budget\": 60,\n  \"minParticipants\": 2,\n  \"tentativeStartDate\": \"{{futureDate}}\",\n  \"tentativeEndDate\": \"{{futureDate}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"budget\": 60,\n  \"closedAt\": null,\n  \"createdAt\": \"2026-09-25T20:51:45.784503\",\n  \"creatorId\": 2,\n  \"creatorName\": \"Ana Torres\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"feasibilityScore\": 0,\n  \"feasibilityStatus\": \"NOT_VIABLE\",\n  \"id\": 1,\n  \"inviteCode\": \"3B021B05\",\n  \"minParticipants\": 2,\n  \"name\": \"Cena viernes\",\n  \"status\": \"OPEN\",\n  \"tentativeEndDate\": \"2026-10-10\",\n  \"tentativeStartDate\": \"2026-10-10\",\n  \"type\": \"DINNER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-015",
+          "name": "Mis planes (paginado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans?status=OPEN&page=0&size=10",
+            "description": "Planes en los que participa el usuario. Filtro opcional por status (OPEN, CLOSED, CANCELLED) y paginación con page/size (máximo 50)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans?status=OPEN&page=0&size=10",
+                "description": "Planes en los que participa el usuario. Filtro opcional por status (OPEN, CLOSED, CANCELLED) y paginación con page/size (máximo 50)."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"content\": [\n    {\n      \"budget\": 60,\n      \"createdAt\": \"2026-09-25T20:51:45.784503\",\n      \"creatorName\": \"Ana Torres\",\n      \"feasibilityScore\": 0,\n      \"feasibilityStatus\": \"NOT_VIABLE\",\n      \"id\": 1,\n      \"minParticipants\": 2,\n      \"name\": \"Cena viernes\",\n      \"status\": \"OPEN\",\n      \"tentativeEndDate\": \"2026-10-10\",\n      \"tentativeStartDate\": \"2026-10-10\",\n      \"type\": \"DINNER\"\n    }\n  ],\n  \"page\": 0,\n  \"size\": 10,\n  \"totalElements\": 1,\n  \"totalPages\": 1\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-016",
+          "name": "Detalle de plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}",
+            "description": "Solo miembros del plan (o ADMIN). Incluye el inviteCode para compartir."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}",
+                "description": "Solo miembros del plan (o ADMIN). Incluye el inviteCode para compartir."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"budget\": 60,\n  \"closedAt\": null,\n  \"createdAt\": \"2026-09-25T20:51:45.784503\",\n  \"creatorId\": 2,\n  \"creatorName\": \"Ana Torres\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"feasibilityScore\": 0,\n  \"feasibilityStatus\": \"NOT_VIABLE\",\n  \"id\": 1,\n  \"inviteCode\": \"3B021B05\",\n  \"minParticipants\": 2,\n  \"name\": \"Cena viernes\",\n  \"status\": \"OPEN\",\n  \"tentativeEndDate\": \"2026-10-10\",\n  \"tentativeStartDate\": \"2026-10-10\",\n  \"type\": \"DINNER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-017",
+          "name": "Editar plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}",
+            "description": "Solo el organizador y solo si el plan está OPEN. Publica PlanChangedEvent (recalcula el semáforo) y PlanUpdatedEvent (avisa a los participantes).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cena viernes\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"type\": \"DINNER\",\n  \"budget\": 80,\n  \"minParticipants\": 2,\n  \"tentativeStartDate\": \"{{futureDate}}\",\n  \"tentativeEndDate\": \"{{futureDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}",
+                "description": "Solo el organizador y solo si el plan está OPEN. Publica PlanChangedEvent (recalcula el semáforo) y PlanUpdatedEvent (avisa a los participantes).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Cena viernes\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"type\": \"DINNER\",\n  \"budget\": 80,\n  \"minParticipants\": 2,\n  \"tentativeStartDate\": \"{{futureDate}}\",\n  \"tentativeEndDate\": \"{{futureDate}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"budget\": 80,\n  \"closedAt\": null,\n  \"createdAt\": \"2026-09-25T20:51:45.784503\",\n  \"creatorId\": 2,\n  \"creatorName\": \"Ana Torres\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"feasibilityScore\": 0,\n  \"feasibilityStatus\": \"NOT_VIABLE\",\n  \"id\": 1,\n  \"inviteCode\": \"3B021B05\",\n  \"minParticipants\": 2,\n  \"name\": \"Cena viernes\",\n  \"status\": \"OPEN\",\n  \"tentativeEndDate\": \"2026-10-10\",\n  \"tentativeStartDate\": \"2026-10-10\",\n  \"type\": \"DINNER\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Participants",
+      "description": "Invitaciones y membresía.",
+      "item": [
+        {
+          "id": "qsale-018",
+          "name": "Unirse con código (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/plans/join/{{inviteCode}}",
+            "description": "El invitado entra al plan con el código compartido y queda JOINED. 409 si ya estaba unido.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/plans/join/{{inviteCode}}",
+                "description": "El invitado entra al plan con el código compartido y queda JOINED. 409 si ya estaba unido.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 2,\n  \"invitedAt\": \"2026-09-25T20:51:46.2899186\",\n  \"joinedAt\": \"2026-09-25T20:51:46.2899186\",\n  \"planId\": 1,\n  \"role\": \"GUEST\",\n  \"status\": \"JOINED\",\n  \"userEmail\": \"bob@utec.edu.pe\",\n  \"userId\": 3,\n  \"userName\": \"Bob Diaz\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-019",
+          "name": "Invitar por email (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/participants",
+            "description": "Solo el organizador. El usuario debe estar registrado y queda INVITED. Publica ParticipantInvitedEvent: notificación en la app + correo con el código.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/participants",
+                "description": "Solo el organizador. El usuario debe estar registrado y queda INVITED. Publica ParticipantInvitedEvent: notificación en la app + correo con el código.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{adminEmail}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 3,\n  \"invitedAt\": \"2026-09-25T20:51:46.4088492\",\n  \"joinedAt\": null,\n  \"planId\": 1,\n  \"role\": \"GUEST\",\n  \"status\": \"INVITED\",\n  \"userEmail\": \"admin@qsale.com\",\n  \"userId\": 1,\n  \"userName\": \"Admin QSale\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-020",
+          "name": "Aceptar invitación (admin invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/participants/me",
+            "description": "El usuario invitado acepta la invitación y pasa a JOINED.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/participants/me",
+                "description": "El usuario invitado acepta la invitación y pasa a JOINED.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 3,\n  \"invitedAt\": \"2026-09-25T20:51:46.408849\",\n  \"joinedAt\": \"2026-09-25T20:51:46.5103555\",\n  \"planId\": 1,\n  \"role\": \"GUEST\",\n  \"status\": \"JOINED\",\n  \"userEmail\": \"admin@qsale.com\",\n  \"userId\": 1,\n  \"userName\": \"Admin QSale\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-021",
+          "name": "Listar participantes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/participants",
+            "description": "Participantes con su rol (ORGANIZER / GUEST) y estado (INVITED / JOINED). No expone ubicaciones."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/participants",
+                "description": "Participantes con su rol (ORGANIZER / GUEST) y estado (INVITED / JOINED). No expone ubicaciones."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": 3,\n    \"invitedAt\": \"2026-09-25T20:51:46.408849\",\n    \"joinedAt\": \"2026-09-25T20:51:46.510356\",\n    \"planId\": 1,\n    \"role\": \"GUEST\",\n    \"status\": \"JOINED\",\n    \"userEmail\": \"admin@qsale.com\",\n    \"userId\": 1,\n    \"userName\": \"Admin QSale\"\n  },\n  {\n    \"id\": 1,\n    \"invitedAt\": \"2026-09-25T20:51:45.788739\",\n    \"joinedAt\": \"2026-09-25T20:51:45.788739\",\n    \"planId\": 1,\n    \"role\": \"ORGANIZER\",\n    \"status\": \"JOINED\",\n    \"userEmail\": \"ana@utec.edu.pe\",\n    \"userId\": 2,\n    \"userName\": \"Ana Torres\"\n  },\n  {\n    \"id\": 2,\n    \"invitedAt\": \"2026-09-25T20:51:46.289919\",\n    \"joinedAt\": \"2026-09-25T20:51:46.289919\",\n    \"planId\": 1,\n    \"role\": \"GUEST\",\n    \"status\": \"JOINED\",\n    \"userEmail\": \"bob@utec.edu.pe\",\n    \"userId\": 3,\n    \"userName\": \"Bob Diaz\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "id": "qsale-022",
+          "name": "Retirar participante",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/participants/{{adminUserId}}",
+            "description": "El organizador retira a alguien (o un usuario se retira a sí mismo con su propio id). El organizador no puede ser retirado."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/participants/{{adminUserId}}",
+                "description": "El organizador retira a alguien (o un usuario se retira a sí mismo con su propio id). El organizador no puede ser retirado."
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Options & votes",
+      "description": "Alternativas de fecha o lugar y votación.",
+      "item": [
+        {
+          "id": "qsale-023",
+          "name": "Proponer fecha",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"dateOptionId\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/options",
+            "description": "Cualquier miembro puede proponer. Una opción DATE exige startsAt en el futuro.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DATE\",\n  \"label\": \"Viernes 8 pm\",\n  \"startsAt\": \"{{futureDate}}T20:00:00\",\n  \"endsAt\": \"{{futureDate}}T23:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/options",
+                "description": "Cualquier miembro puede proponer. Una opción DATE exige startsAt en el futuro.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"DATE\",\n  \"label\": \"Viernes 8 pm\",\n  \"startsAt\": \"{{futureDate}}T20:00:00\",\n  \"endsAt\": \"{{futureDate}}T23:00:00\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"avgDistanceKm\": null,\n  \"avgTravelMinutes\": null,\n  \"description\": null,\n  \"endsAt\": \"2026-10-10T23:00:00\",\n  \"id\": 1,\n  \"label\": \"Viernes 8 pm\",\n  \"location\": null,\n  \"proposedByName\": \"Ana Torres\",\n  \"score\": 0,\n  \"selected\": false,\n  \"startsAt\": \"2026-10-10T20:00:00\",\n  \"type\": \"DATE\",\n  \"voteCount\": 0\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-024",
+          "name": "Proponer lugar (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"placeOptionId\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/options",
+            "description": "Una opción PLACE exige location. Publica PlaceOptionCreatedEvent: un listener @Async calcula la distancia y el tiempo promedio del grupo con OpenRouteService (o Haversine si no hay API key).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PLACE\",\n  \"label\": \"La Lucha Barranco\",\n  \"location\": {\n    \"latitude\": -12.1486,\n    \"longitude\": -77.0219,\n    \"address\": \"Av. Pedro de Osma 110\",\n    \"district\": \"Barranco\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/options",
+                "description": "Una opción PLACE exige location. Publica PlaceOptionCreatedEvent: un listener @Async calcula la distancia y el tiempo promedio del grupo con OpenRouteService (o Haversine si no hay API key).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"PLACE\",\n  \"label\": \"La Lucha Barranco\",\n  \"location\": {\n    \"latitude\": -12.1486,\n    \"longitude\": -77.0219,\n    \"address\": \"Av. Pedro de Osma 110\",\n    \"district\": \"Barranco\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"avgDistanceKm\": null,\n  \"avgTravelMinutes\": null,\n  \"description\": null,\n  \"endsAt\": null,\n  \"id\": 2,\n  \"label\": \"La Lucha Barranco\",\n  \"location\": {\n    \"address\": \"Av. Pedro de Osma 110\",\n    \"district\": \"Barranco\",\n    \"latitude\": -12.1486,\n    \"longitude\": -77.0219\n  },\n  \"proposedByName\": \"Bob Diaz\",\n  \"score\": 0,\n  \"selected\": false,\n  \"startsAt\": null,\n  \"type\": \"PLACE\",\n  \"voteCount\": 0\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-025",
+          "name": "Listar opciones",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 1500);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"El lugar tiene distancia calculada\", () => pm.expect(pm.response.json().find(option => option.type === \"PLACE\").avgDistanceKm).to.not.be.null);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/options",
+            "description": "Opciones ordenadas por puntaje (80 % votos + 20 % cercanía). Espera 1.5 s para que termine el cálculo asíncrono de distancias."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/options",
+                "description": "Opciones ordenadas por puntaje (80 % votos + 20 % cercanía). Espera 1.5 s para que termine el cálculo asíncrono de distancias."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"avgDistanceKm\": 1.63,\n    \"avgTravelMinutes\": 4,\n    \"description\": null,\n    \"endsAt\": null,\n    \"id\": 2,\n    \"label\": \"La Lucha Barranco\",\n    \"location\": {\n      \"address\": \"Av. Pedro de Osma 110\",\n      \"district\": \"Barranco\",\n      \"latitude\": -12.1486,\n      \"longitude\": -77.0219\n    },\n    \"proposedByName\": \"Bob Diaz\",\n    \"score\": 18,\n    \"selected\": false,\n    \"startsAt\": null,\n    \"type\": \"PLACE\",\n    \"voteCount\": 0\n  },\n  {\n    \"avgDistanceKm\": null,\n    \"avgTravelMinutes\": null,\n    \"description\": null,\n    \"endsAt\": \"2026-10-10T23:00:00\",\n    \"id\": 1,\n    \"label\": \"Viernes 8 pm\",\n    \"location\": null,\n    \"proposedByName\": \"Ana Torres\",\n    \"score\": 0,\n    \"selected\": false,\n    \"startsAt\": \"2026-10-10T20:00:00\",\n    \"type\": \"DATE\",\n    \"voteCount\": 0\n  }\n]"
+            }
+          ]
+        },
+        {
+          "id": "qsale-026",
+          "name": "Listar solo fechas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/options?type=DATE",
+            "description": "Filtro opcional por tipo: ?type=DATE o ?type=PLACE."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/options?type=DATE",
+                "description": "Filtro opcional por tipo: ?type=DATE o ?type=PLACE."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"avgDistanceKm\": null,\n    \"avgTravelMinutes\": null,\n    \"description\": null,\n    \"endsAt\": \"2026-10-10T23:00:00\",\n    \"id\": 1,\n    \"label\": \"Viernes 8 pm\",\n    \"location\": null,\n    \"proposedByName\": \"Ana Torres\",\n    \"score\": 0,\n    \"selected\": false,\n    \"startsAt\": \"2026-10-10T20:00:00\",\n    \"type\": \"DATE\",\n    \"voteCount\": 0\n  }\n]"
+            }
+          ]
+        },
+        {
+          "id": "qsale-027",
+          "name": "Votar fecha (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+            "description": "Vota una opción. Cada usuario puede votar varias opciones, pero una sola vez cada una. Publica PlanChangedEvent."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+                "description": "Vota una opción. Cada usuario puede votar varias opciones, pero una sola vez cada una. Publica PlanChangedEvent."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"optionId\": 1,\n  \"totalVotes\": 1\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-028",
+          "name": "Votar fecha (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+            "description": "Voto del invitado; la respuesta trae el total de votos de la opción.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+                "description": "Voto del invitado; la respuesta trae el total de votos de la opción.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"optionId\": 1,\n  \"totalVotes\": 2\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-029",
+          "name": "Quitar voto (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+            "description": "Retira el voto propio. 404 si el usuario no había votado esa opción.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+                "description": "Retira el voto propio. 404 si el usuario no había votado esa opción.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "id": "qsale-030",
+          "name": "Votar fecha otra vez (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+            "description": "Vuelve a votar después de haber quitado el voto.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+                "description": "Vuelve a votar después de haber quitado el voto.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"optionId\": 1,\n  \"totalVotes\": 2\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-031",
+          "name": "Votar lugar (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/options/{{placeOptionId}}/votes",
+            "description": "Voto por el lugar propuesto, para que al cerrar se elija fecha y lugar."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/options/{{placeOptionId}}/votes",
+                "description": "Voto por el lugar propuesto, para que al cerrar se elija fecha y lugar."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"optionId\": 2,\n  \"totalVotes\": 1\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Availability & commitment",
+      "description": "Disponibilidad, nivel de compromiso y semáforo de viabilidad.",
+      "item": [
+        {
+          "id": "qsale-032",
+          "name": "Registrar disponibilidad (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"availabilityId\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/availabilities",
+            "description": "Día y rango horario en que el participante puede asistir. endTime debe ser posterior a startTime.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"availableDate\": \"{{futureDate}}\",\n  \"startTime\": \"19:00\",\n  \"endTime\": \"23:30\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/availabilities",
+                "description": "Día y rango horario en que el participante puede asistir. endTime debe ser posterior a startTime.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"availableDate\": \"{{futureDate}}\",\n  \"startTime\": \"19:00\",\n  \"endTime\": \"23:30\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"availableDate\": \"2026-10-10\",\n  \"endTime\": \"23:30:00\",\n  \"id\": 1,\n  \"startTime\": \"19:00:00\",\n  \"userId\": 2,\n  \"userName\": \"Ana Torres\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-033",
+          "name": "Registrar disponibilidad (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/availabilities",
+            "description": "Sin horas significa disponible todo el día.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"availableDate\": \"{{futureDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/availabilities",
+                "description": "Sin horas significa disponible todo el día.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"availableDate\": \"{{futureDate}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"availableDate\": \"2026-10-10\",\n  \"endTime\": null,\n  \"id\": 2,\n  \"startTime\": null,\n  \"userId\": 3,\n  \"userName\": \"Bob Diaz\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-034",
+          "name": "Listar disponibilidades",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/availabilities",
+            "description": "Disponibilidad de todos los participantes del plan."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/availabilities",
+                "description": "Disponibilidad de todos los participantes del plan."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"availableDate\": \"2026-10-10\",\n    \"endTime\": \"23:30:00\",\n    \"id\": 1,\n    \"startTime\": \"19:00:00\",\n    \"userId\": 2,\n    \"userName\": \"Ana Torres\"\n  },\n  {\n    \"availableDate\": \"2026-10-10\",\n    \"endTime\": null,\n    \"id\": 2,\n    \"startTime\": null,\n    \"userId\": 3,\n    \"userName\": \"Bob Diaz\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "id": "qsale-035",
+          "name": "Confirmar (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/commitments/me",
+            "description": "Estados: CONFIRMED, INTERESTED, CANT_GO. Crea o actualiza la respuesta del usuario y publica PlanChangedEvent.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/commitments/me",
+                "description": "Estados: CONFIRMED, INTERESTED, CANT_GO. Crea o actualiza la respuesta del usuario y publica PlanChangedEvent.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"CONFIRMED\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 1,\n  \"note\": null,\n  \"respondedAt\": \"2026-09-25T20:51:49.6913294\",\n  \"status\": \"CONFIRMED\",\n  \"userId\": 2,\n  \"userName\": \"Ana Torres\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-036",
+          "name": "Me interesa (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/commitments/me",
+            "description": "Respuesta intermedia: el invitado todavía no confirma.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"INTERESTED\",\n  \"note\": \"Depende de mi horario de trabajo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/commitments/me",
+                "description": "Respuesta intermedia: el invitado todavía no confirma.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"INTERESTED\",\n  \"note\": \"Depende de mi horario de trabajo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 2,\n  \"note\": \"Depende de mi horario de trabajo\",\n  \"respondedAt\": \"2026-09-25T20:51:49.8188196\",\n  \"status\": \"INTERESTED\",\n  \"userId\": 3,\n  \"userName\": \"Bob Diaz\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-037",
+          "name": "Semáforo (por definir)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Semáforo TO_BE_DEFINED\", () => pm.expect(pm.response.json().status).to.eql(\"TO_BE_DEFINED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/feasibility",
+            "description": "Índice de viabilidad calculado al momento: 50 × confirmados/mínimo + 30 × acuerdo en votos + 20 × participantes con disponibilidad. NOT_VIABLE < 40 ≤ TO_BE_DEFINED; READY_TO_CLOSE si ≥ 75 y se alcanzó el mínimo de confirmados."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/feasibility",
+                "description": "Índice de viabilidad calculado al momento: 50 × confirmados/mínimo + 30 × acuerdo en votos + 20 × participantes con disponibilidad. NOT_VIABLE < 40 ≤ TO_BE_DEFINED; READY_TO_CLOSE si ≥ 75 y se alcanzó el mínimo de confirmados."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"planId\": 1,\n  \"score\": 68,\n  \"status\": \"TO_BE_DEFINED\",\n  \"confirmedParticipants\": 1,\n  \"minParticipants\": 2,\n  \"totalParticipants\": 2\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-038",
+          "name": "Confirmar (invitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/commitments/me",
+            "description": "Con esta confirmación el plan llega al mínimo; el listener asíncrono avisa al organizador (notificación + correo) que ya puede cerrarlo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/commitments/me",
+                "description": "Con esta confirmación el plan llega al mínimo; el listener asíncrono avisa al organizador (notificación + correo) que ya puede cerrarlo.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"CONFIRMED\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": 2,\n  \"note\": null,\n  \"respondedAt\": \"2026-09-25T20:51:50.0173872\",\n  \"status\": \"CONFIRMED\",\n  \"userId\": 3,\n  \"userName\": \"Bob Diaz\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-039",
+          "name": "Semáforo (listo para cerrar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Semáforo READY_TO_CLOSE\", () => pm.expect(pm.response.json().status).to.eql(\"READY_TO_CLOSE\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/feasibility",
+            "description": "Mínimo de confirmados alcanzado y puntaje ≥ 75: el semáforo está en verde."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/feasibility",
+                "description": "Mínimo de confirmados alcanzado y puntaje ≥ 75: el semáforo está en verde."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"planId\": 1,\n  \"score\": 93,\n  \"status\": \"READY_TO_CLOSE\",\n  \"confirmedParticipants\": 2,\n  \"minParticipants\": 2,\n  \"totalParticipants\": 2\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-040",
+          "name": "Listar compromisos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/commitments",
+            "description": "Respuestas de compromiso de todos los participantes, para que el organizador vea quién está realmente comprometido."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/commitments",
+                "description": "Respuestas de compromiso de todos los participantes, para que el organizador vea quién está realmente comprometido."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": 1,\n    \"note\": null,\n    \"respondedAt\": \"2026-09-25T20:51:49.691329\",\n    \"status\": \"CONFIRMED\",\n    \"userId\": 2,\n    \"userName\": \"Ana Torres\"\n  },\n  {\n    \"id\": 2,\n    \"note\": null,\n    \"respondedAt\": \"2026-09-25T20:51:50.017387\",\n    \"status\": \"CONFIRMED\",\n    \"userId\": 3,\n    \"userName\": \"Bob Diaz\"\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Close plan",
+      "description": "Cierre del plan.",
+      "item": [
+        {
+          "id": "qsale-041",
+          "name": "Cerrar plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Plan CLOSED\", () => pm.expect(pm.response.json().status).to.eql(\"CLOSED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/close",
+            "description": "Solo el organizador y solo si el semáforo está en READY_TO_CLOSE (si no, 400). Marca como elegida la opción más votada de cada tipo y publica PlanStatusChangedEvent: notificación + correo con los datos finales a todos."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/close",
+                "description": "Solo el organizador y solo si el semáforo está en READY_TO_CLOSE (si no, 400). Marca como elegida la opción más votada de cada tipo y publica PlanStatusChangedEvent: notificación + correo con los datos finales a todos."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"budget\": 80,\n  \"closedAt\": \"2026-09-25T20:51:50.2770366\",\n  \"createdAt\": \"2026-09-25T20:51:45.784503\",\n  \"creatorId\": 2,\n  \"creatorName\": \"Ana Torres\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"feasibilityScore\": 93,\n  \"feasibilityStatus\": \"READY_TO_CLOSE\",\n  \"id\": 1,\n  \"inviteCode\": \"3B021B05\",\n  \"minParticipants\": 2,\n  \"name\": \"Cena viernes\",\n  \"status\": \"CLOSED\",\n  \"tentativeEndDate\": \"2026-10-10\",\n  \"tentativeStartDate\": \"2026-10-10\",\n  \"type\": \"DINNER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-042",
+          "name": "Ver opciones elegidas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Hay opciones seleccionadas\", () => pm.expect(pm.response.json().filter(option => option.selected).length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/options",
+            "description": "Después del cierre, la fecha y el lugar ganadores tienen selected = true."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/options",
+                "description": "Después del cierre, la fecha y el lugar ganadores tienen selected = true."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"avgDistanceKm\": null,\n    \"avgTravelMinutes\": null,\n    \"description\": null,\n    \"endsAt\": \"2026-10-10T23:00:00\",\n    \"id\": 1,\n    \"label\": \"Viernes 8 pm\",\n    \"location\": null,\n    \"proposedByName\": \"Ana Torres\",\n    \"score\": 80,\n    \"selected\": true,\n    \"startsAt\": \"2026-10-10T20:00:00\",\n    \"type\": \"DATE\",\n    \"voteCount\": 2\n  },\n  {\n    \"avgDistanceKm\": 1.63,\n    \"avgTravelMinutes\": 4,\n    \"description\": null,\n    \"endsAt\": null,\n    \"id\": 2,\n    \"label\": \"La Lucha Barranco\",\n    \"location\": {\n      \"address\": \"Av. Pedro de Osma 110\",\n      \"district\": \"Barranco\",\n      \"latitude\": -12.1486,\n      \"longitude\": -77.0219\n    },\n    \"proposedByName\": \"Bob Diaz\",\n    \"score\": 58,\n    \"selected\": true,\n    \"startsAt\": null,\n    \"type\": \"PLACE\",\n    \"voteCount\": 1\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Notifications",
+      "description": "Las crean los eventos asíncronos (invitación, plan listo para cerrar, plan actualizado, cerrado o cancelado). En local, los correos se ven en Mailpit: http://localhost:8025",
+      "item": [
+        {
+          "id": "qsale-043",
+          "name": "Mis notificaciones",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 1500);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"notificationId\", json[0].id);",
+                  "}",
+                  "pm.test(\"Hay notificaciones\", () => pm.expect(pm.response.json().length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notifications?unreadOnly=false",
+            "description": "Notificaciones del usuario, de la más reciente a la más antigua, con su estado de envío (SENT o FAILED si el correo no salió). Espera 1.5 s porque las crean listeners @Async."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/notifications?unreadOnly=false",
+                "description": "Notificaciones del usuario, de la más reciente a la más antigua, con su estado de envío (SENT o FAILED si el correo no salió). Espera 1.5 s porque las crean listeners @Async."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"createdAt\": \"2026-09-25T20:51:50.303147\",\n    \"id\": 3,\n    \"message\": \"El plan Cena viernes quedó confirmado\",\n    \"planId\": 1,\n    \"readAt\": null,\n    \"status\": \"SENT\",\n    \"type\": \"PLAN_CLOSED\"\n  },\n  {\n    \"createdAt\": \"2026-09-25T20:51:50.056071\",\n    \"id\": 2,\n    \"message\": \"El plan Cena viernes alcanzó el mínimo de confirmados y está listo para cerrarse\",\n    \"planId\": 1,\n    \"readAt\": null,\n    \"status\": \"SENT\",\n    \"type\": \"MIN_PARTICIPANTS_REACHED\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "id": "qsale-044",
+          "name": "Marcar como leída",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Tiene readAt\", () => pm.expect(pm.response.json().readAt).to.not.be.null);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/notifications/{{notificationId}}/read",
+            "description": "Marca la notificación como leída. Solo su destinatario puede hacerlo (si no, 404)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": "{{baseUrl}}/notifications/{{notificationId}}/read",
+                "description": "Marca la notificación como leída. Solo su destinatario puede hacerlo (si no, 404)."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"createdAt\": \"2026-09-25T20:51:50.303147\",\n  \"id\": 3,\n  \"message\": \"El plan Cena viernes quedó confirmado\",\n  \"planId\": 1,\n  \"readAt\": \"2026-09-25T20:51:52.1000358\",\n  \"status\": \"SENT\",\n  \"type\": \"PLAN_CLOSED\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-045",
+          "name": "Solo no leídas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notifications?unreadOnly=true",
+            "description": "Lista solo las notificaciones que aún no se leyeron."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/notifications?unreadOnly=true",
+                "description": "Lista solo las notificaciones que aún no se leyeron."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"createdAt\": \"2026-09-25T20:51:50.056071\",\n    \"id\": 2,\n    \"message\": \"El plan Cena viernes alcanzó el mínimo de confirmados y está listo para cerrarse\",\n    \"planId\": 1,\n    \"readAt\": null,\n    \"status\": \"SENT\",\n    \"type\": \"MIN_PARTICIPANTS_REACHED\"\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Error examples",
+      "description": "Respuestas de error del GlobalExceptionHandler, todas con el mismo ErrorResponseDto (timestamp, status, error, message, path).",
+      "item": [
+        {
+          "id": "qsale-046",
+          "name": "400 - Validación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/signup",
+            "description": "MethodArgumentNotValidException: incluye fieldErrors con el detalle por campo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"A\",\n  \"email\": \"no-es-email\",\n  \"password\": \"debil\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "400 Bad Request",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/signup",
+                "description": "MethodArgumentNotValidException: incluye fieldErrors con el detalle por campo.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"A\",\n  \"email\": \"no-es-email\",\n  \"password\": \"debil\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-09-25T20:51:52.2892932\",\n  \"status\": 400,\n  \"error\": \"Bad Request\",\n  \"message\": \"Validation failed\",\n  \"path\": \"/api/v1/auth/signup\",\n  \"fieldErrors\": {\n    \"password\": \"el tamaño debe estar entre 8 y 64\",\n    \"name\": \"el tamaño debe estar entre 2 y 100\",\n    \"email\": \"debe ser una dirección de correo electrónico con formato correcto\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-047",
+          "name": "401 - Password incorrecto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/signin",
+            "description": "BadCredentialsException: mismo mensaje si el email no existe, para no revelar qué cuentas están registradas.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"Wrong1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/signin",
+                "description": "BadCredentialsException: mismo mensaje si el email no existe, para no revelar qué cuentas están registradas.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"Wrong1234\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-09-25T20:51:52.4620587\",\n  \"status\": 401,\n  \"error\": \"Unauthorized\",\n  \"message\": \"Invalid email or password\",\n  \"path\": \"/api/v1/auth/signin\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-048",
+          "name": "401 - Sin token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/me",
+            "description": "Request sin Authorization: lo resuelve el AuthenticationEntryPoint con el mismo formato de error.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/users/me",
+                "description": "Request sin Authorization: lo resuelve el AuthenticationEntryPoint con el mismo formato de error.",
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-09-25T20:51:52.5446787\",\n  \"status\": 401,\n  \"error\": \"Unauthorized\",\n  \"message\": \"Full authentication is required to access this resource\",\n  \"path\": \"/api/v1/users/me\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-049",
+          "name": "403 - Ruta de admin con usuario normal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/admin/users",
+            "description": "Usuario autenticado sin el rol necesario: AccessDeniedHandler.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "403 Forbidden",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/admin/users",
+                "description": "Usuario autenticado sin el rol necesario: AccessDeniedHandler.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{guestToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-09-25T20:51:52.6134326\",\n  \"status\": 403,\n  \"error\": \"Forbidden\",\n  \"message\": \"Access Denied\",\n  \"path\": \"/api/v1/admin/users\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-050",
+          "name": "404 - Plan inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/999999",
+            "description": "ResourceNotFoundException."
+          },
+          "response": [
+            {
+              "name": "404 Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/999999",
+                "description": "ResourceNotFoundException."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-09-25T20:51:52.6953161\",\n  \"status\": 404,\n  \"error\": \"Not Found\",\n  \"message\": \"Plan not found with id 999999\",\n  \"path\": \"/api/v1/plans/999999\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-051",
+          "name": "409 - Voto duplicado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+            "description": "AlreadyVotedException (subclase de DuplicateResourceException → ConflictException)."
+          },
+          "response": [
+            {
+              "name": "409 Conflict",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/options/{{dateOptionId}}/votes",
+                "description": "AlreadyVotedException (subclase de DuplicateResourceException → ConflictException)."
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-09-25T20:51:52.7977665\",\n  \"status\": 409,\n  \"error\": \"Conflict\",\n  \"message\": \"Plan 1 is CLOSED and cannot be modified\",\n  \"path\": \"/api/v1/options/1/votes\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-052",
+          "name": "409 - Plan cerrado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/options",
+            "description": "PlanClosedException: un plan cerrado o cancelado ya no acepta cambios.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DATE\",\n  \"label\": \"Sábado\",\n  \"startsAt\": \"{{futureDate}}T18:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "409 Conflict",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{planId}}/options",
+                "description": "PlanClosedException: un plan cerrado o cancelado ya no acepta cambios.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"DATE\",\n  \"label\": \"Sábado\",\n  \"startsAt\": \"{{futureDate}}T18:00:00\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"timestamp\": \"2026-09-25T20:51:52.8973614\",\n  \"status\": 409,\n  \"error\": \"Conflict\",\n  \"message\": \"Plan 1 is CLOSED and cannot be modified\",\n  \"path\": \"/api/v1/plans/1/options\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Delete endpoints",
+      "description": "Prueba de los DELETE y de la cancelación sobre un segundo plan.",
+      "item": [
+        {
+          "id": "qsale-053",
+          "name": "Crear segundo plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"secondPlanId\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans",
+            "description": "Plan auxiliar para probar los DELETE sin afectar al primero.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Plan para borrar\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"type\": \"DINNER\",\n  \"budget\": 60,\n  \"minParticipants\": 2,\n  \"tentativeStartDate\": \"{{futureDate}}\",\n  \"tentativeEndDate\": \"{{futureDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans",
+                "description": "Plan auxiliar para probar los DELETE sin afectar al primero.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Plan para borrar\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"type\": \"DINNER\",\n  \"budget\": 60,\n  \"minParticipants\": 2,\n  \"tentativeStartDate\": \"{{futureDate}}\",\n  \"tentativeEndDate\": \"{{futureDate}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"budget\": 60,\n  \"closedAt\": null,\n  \"createdAt\": \"2026-09-25T20:51:52.9970467\",\n  \"creatorId\": 2,\n  \"creatorName\": \"Ana Torres\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"feasibilityScore\": 0,\n  \"feasibilityStatus\": \"NOT_VIABLE\",\n  \"id\": 2,\n  \"inviteCode\": \"65A8C7F8\",\n  \"minParticipants\": 2,\n  \"name\": \"Plan para borrar\",\n  \"status\": \"OPEN\",\n  \"tentativeEndDate\": \"2026-10-10\",\n  \"tentativeStartDate\": \"2026-10-10\",\n  \"type\": \"DINNER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-054",
+          "name": "Crear opción temporal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"tempOptionId\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{secondPlanId}}/options",
+            "description": "Opción que se borra en el siguiente request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DATE\",\n  \"label\": \"Domingo\",\n  \"startsAt\": \"{{futureDate}}T12:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{secondPlanId}}/options",
+                "description": "Opción que se borra en el siguiente request.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"DATE\",\n  \"label\": \"Domingo\",\n  \"startsAt\": \"{{futureDate}}T12:00:00\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"avgDistanceKm\": null,\n  \"avgTravelMinutes\": null,\n  \"description\": null,\n  \"endsAt\": null,\n  \"id\": 3,\n  \"label\": \"Domingo\",\n  \"location\": null,\n  \"proposedByName\": \"Ana Torres\",\n  \"score\": 0,\n  \"selected\": false,\n  \"startsAt\": \"2026-10-10T12:00:00\",\n  \"type\": \"DATE\",\n  \"voteCount\": 0\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-055",
+          "name": "Borrar opción",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{secondPlanId}}/options/{{tempOptionId}}",
+            "description": "Solo el organizador. Borra la opción y sus votos (orphanRemoval)."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{secondPlanId}}/options/{{tempOptionId}}",
+                "description": "Solo el organizador. Borra la opción y sus votos (orphanRemoval)."
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "id": "qsale-056",
+          "name": "Crear disponibilidad temporal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"tempAvailabilityId\", json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{secondPlanId}}/availabilities",
+            "description": "Disponibilidad que se borra en el siguiente request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"availableDate\": \"{{futureDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/plans/{{secondPlanId}}/availabilities",
+                "description": "Disponibilidad que se borra en el siguiente request.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"availableDate\": \"{{futureDate}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"availableDate\": \"2026-10-10\",\n  \"endTime\": null,\n  \"id\": 3,\n  \"startTime\": null,\n  \"userId\": 2,\n  \"userName\": \"Ana Torres\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-057",
+          "name": "Borrar disponibilidad",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{secondPlanId}}/availabilities/{{tempAvailabilityId}}",
+            "description": "Cada usuario solo puede borrar su propia disponibilidad (si no, 403)."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{secondPlanId}}/availabilities/{{tempAvailabilityId}}",
+                "description": "Cada usuario solo puede borrar su propia disponibilidad (si no, 403)."
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "id": "qsale-058",
+          "name": "Cancelar plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{secondPlanId}}/cancel",
+            "description": "Solo el organizador. Pasa el plan a CANCELLED y avisa a los participantes."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{secondPlanId}}/cancel",
+                "description": "Solo el organizador. Pasa el plan a CANCELLED y avisa a los participantes."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"budget\": 60,\n  \"closedAt\": \"2026-09-25T20:51:53.5591099\",\n  \"createdAt\": \"2026-09-25T20:51:52.997047\",\n  \"creatorId\": 2,\n  \"creatorName\": \"Ana Torres\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"feasibilityScore\": 0,\n  \"feasibilityStatus\": \"NOT_VIABLE\",\n  \"id\": 2,\n  \"inviteCode\": \"65A8C7F8\",\n  \"minParticipants\": 2,\n  \"name\": \"Plan para borrar\",\n  \"status\": \"CANCELLED\",\n  \"tentativeEndDate\": \"2026-10-10\",\n  \"tentativeStartDate\": \"2026-10-10\",\n  \"type\": \"DINNER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-059",
+          "name": "Borrar segundo plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{secondPlanId}}",
+            "description": "Solo el organizador (o ADMIN). Borra el plan con todo lo asociado en cascada."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{secondPlanId}}",
+                "description": "Solo el organizador (o ADMIN). Borra el plan con todo lo asociado en cascada."
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "id": "qsale-060",
+          "name": "Borrar primer plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}",
+            "description": "Limpieza final del recorrido."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}",
+                "description": "Limpieza final del recorrido."
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

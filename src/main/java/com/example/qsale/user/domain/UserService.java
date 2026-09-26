@@ -41,6 +41,11 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new UnauthorizedException("Authenticated user no longer exists"));
     }
 
+    public User getUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+    }
+
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email " + email));
@@ -68,8 +73,7 @@ public class UserService implements UserDetailsService {
 
     @Transactional
     public UserResponseDto updateRole(Long userId, RoleUpdateDto dto) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+        User user = getUserById(userId);
         user.setRole(dto.getRole());
         return modelMapper.map(userRepository.save(user), UserResponseDto.class);
     }

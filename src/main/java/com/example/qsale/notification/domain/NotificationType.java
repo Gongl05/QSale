@@ -2,8 +2,8 @@ package com.example.qsale.notification.domain;
 
 public enum NotificationType {
     PLAN_INVITATION,
-    DATE_CHANGED,
-    PLACE_SELECTED,
+    PLAN_UPDATED,
     MIN_PARTICIPANTS_REACHED,
-    PLAN_CLOSED
+    PLAN_CLOSED,
+    PLAN_CANCELLED
 }

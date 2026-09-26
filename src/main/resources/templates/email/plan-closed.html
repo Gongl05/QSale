@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Plan confirmado</title>
+    <style th:replace="~{email/layout-style :: style}"></style>
+</head>
+<body>
+<div class="card">
+    <p class="brand">QSale</p>
+    <h2>¡<span th:text="${planName}">Cena viernes</span> está confirmado!</h2>
+    <p>Hola <span th:text="${name}">Bob</span>, el organizador cerró el plan. Estos son los datos finales:</p>
+    <table>
+        <tr>
+            <td class="label">Fecha</td>
+            <td th:text="${selectedDate}">Viernes 8 pm</td>
+        </tr>
+        <tr>
+            <td class="label">Lugar</td>
+            <td th:text="${selectedPlace}">La Lucha Barranco</td>
+        </tr>
+        <tr>
+            <td class="label">Presupuesto referencial</td>
+            <td th:text="${budget}">S/ 60</td>
+        </tr>
+    </table>
+    <p class="muted">Recibiste este correo porque participas en este plan de QSale.</p>
+</div>
+</body>
+</html>

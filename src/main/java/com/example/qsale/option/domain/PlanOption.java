@@ -19,9 +19,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.OptimisticLock;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,6 +39,9 @@ public class PlanOption {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(nullable = false)
@@ -63,8 +68,10 @@ public class PlanOption {
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Location location;
 
+    @OptimisticLock(excluded = true)
     private Double avgDistanceKm;
 
+    @OptimisticLock(excluded = true)
     private Integer avgTravelMinutes;
 
     @Column(nullable = false)

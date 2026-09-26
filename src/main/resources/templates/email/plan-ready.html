@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Plan listo para cerrar</title>
+    <style th:replace="~{email/layout-style :: style}"></style>
+</head>
+<body>
+<div class="card">
+    <p class="brand">QSale</p>
+    <h2><span th:text="${planName}">Cena viernes</span> está listo para cerrarse</h2>
+    <p>El plan alcanzó el mínimo de <strong th:text="${minParticipants}">2</strong> participantes confirmados
+        y su índice de viabilidad es <strong th:text="${score} + '%'">85%</strong>.</p>
+    <p>Como organizador, ya puedes cerrarlo para fijar la fecha y el lugar más votados.</p>
+    <p class="muted">Este aviso se envía cuando el semáforo cambia a "listo para cerrar".</p>
+</div>
+</body>
+</html>

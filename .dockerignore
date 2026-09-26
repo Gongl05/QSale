@@ -1,0 +1,10 @@
+target/
+.git/
+.idea/
+.run/
+.github/
+docs/
+.env
+.env.example
+*.iml
+postman_collection.json

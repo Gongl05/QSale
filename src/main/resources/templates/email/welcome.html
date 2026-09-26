@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Bienvenido a QSale</title>
+    <style th:replace="~{email/layout-style :: style}"></style>
+</head>
+<body>
+<div class="card">
+    <p class="brand">QSale</p>
+    <h2>¡Hola, <span th:text="${name}">Ana</span>!</h2>
+    <p>Tu cuenta fue creada correctamente con el correo <strong th:text="${email}">ana@correo.com</strong>.</p>
+    <p>Ya puedes crear planes, invitar a tu grupo, votar fechas y lugares, y ver el semáforo de viabilidad de cada salida.</p>
+    <p class="muted">Si no creaste esta cuenta, puedes ignorar este correo.</p>
+</div>
+</body>
+</html>

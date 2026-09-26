@@ -3,9 +3,11 @@ package com.example.qsale.exceptions;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
@@ -38,6 +40,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({InvalidOperationException.class})
     public ResponseEntity<ErrorResponseDto> handleInvalidOperation(InvalidOperationException ex, HttpServletRequest request) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler({ObjectOptimisticLockingFailureException.class, DataIntegrityViolationException.class})
+    public ResponseEntity<ErrorResponseDto> handleConcurrentModification(RuntimeException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, "The resource was modified by another request, please retry", request);
     }
 
     @ExceptionHandler({BadCredentialsException.class})

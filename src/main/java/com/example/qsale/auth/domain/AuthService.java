@@ -10,8 +10,10 @@ import com.example.qsale.exceptions.UnauthorizedException;
 import com.example.qsale.user.domain.Role;
 import com.example.qsale.user.domain.User;
 import com.example.qsale.user.domain.UserService;
+import com.example.qsale.user.events.UserRegisteredEvent;
 import com.example.qsale.user.infrastructure.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TokenResponse signUp(SignUpRequest request) {
@@ -35,7 +38,9 @@ public class AuthService {
             throw new DuplicateResourceException("Email " + email + " is already registered");
         }
         User user = new User(request.getName(), email, passwordEncoder.encode(request.getPassword()), Role.USER);
-        return buildTokens(userRepository.save(user));
+        userRepository.save(user);
+        eventPublisher.publishEvent(new UserRegisteredEvent(this, user.getId()));
+        return buildTokens(user);
     }
 
     public TokenResponse signIn(SignInRequest request) {
