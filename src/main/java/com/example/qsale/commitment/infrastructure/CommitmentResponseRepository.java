@@ -14,4 +14,6 @@ public interface CommitmentResponseRepository extends JpaRepository<CommitmentRe
     List<CommitmentResponse> findByPlanId(Long planId);
 
     long countByPlanIdAndStatus(Long planId, CommitmentStatus status);
+
+    long deleteByPlanIdAndUserId(Long planId, Long userId);
 }
