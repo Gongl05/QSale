@@ -1,5 +1,7 @@
 package com.example.qsale.participant.domain;
 
+import com.example.qsale.availability.infrastructure.AvailabilityRepository;
+import com.example.qsale.commitment.infrastructure.CommitmentResponseRepository;
 import com.example.qsale.exceptions.DuplicateResourceException;
 import com.example.qsale.exceptions.ForbiddenException;
 import com.example.qsale.exceptions.InvalidOperationException;
@@ -14,6 +16,7 @@ import com.example.qsale.plan.events.PlanChangedEvent;
 import com.example.qsale.plan.infrastructure.PlanRepository;
 import com.example.qsale.user.domain.User;
 import com.example.qsale.user.domain.UserService;
+import com.example.qsale.vote.infrastructure.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.ApplicationEventPublisher;
@@ -28,6 +31,9 @@ import java.util.List;
 public class ParticipantService {
 
     private final PlanParticipantRepository participantRepository;
+    private final VoteRepository voteRepository;
+    private final AvailabilityRepository availabilityRepository;
+    private final CommitmentResponseRepository commitmentRepository;
     private final PlanRepository planRepository;
     private final PlanAccessService planAccessService;
     private final UserService userService;
@@ -95,6 +101,9 @@ public class ParticipantService {
         if (participant.isOrganizer()) {
             throw new InvalidOperationException("The organizer cannot be removed from the plan");
         }
+        voteRepository.deleteByOption_Plan_IdAndUser_Id(planId, userId);
+        availabilityRepository.deleteByPlanIdAndUserId(planId, userId);
+        commitmentRepository.deleteByPlanIdAndUserId(planId, userId);
         plan.getParticipants().remove(participant);
         eventPublisher.publishEvent(new PlanChangedEvent(this, plan.getId()));
     }

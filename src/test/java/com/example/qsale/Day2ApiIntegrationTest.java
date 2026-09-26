@@ -1,5 +1,10 @@
 package com.example.qsale;
 
+import com.example.qsale.availability.infrastructure.AvailabilityRepository;
+import com.example.qsale.commitment.infrastructure.CommitmentResponseRepository;
+import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
+import com.example.qsale.user.infrastructure.UserRepository;
+import com.example.qsale.vote.infrastructure.VoteRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +17,9 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,6 +33,21 @@ class Day2ApiIntegrationTest extends AbstractContainerBaseTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PlanParticipantRepository participantRepository;
+
+    @Autowired
+    private VoteRepository voteRepository;
+
+    @Autowired
+    private AvailabilityRepository availabilityRepository;
+
+    @Autowired
+    private CommitmentResponseRepository commitmentRepository;
+
     @Test
     void completesTheDayTwoPlanLifecycle() throws Exception {
         String organizerToken = signUp("Organizer", "organizer@qsale.test");
@@ -32,7 +55,7 @@ class Day2ApiIntegrationTest extends AbstractContainerBaseTest {
 
         long planId = createPlan(organizerToken);
 
-        inviteAndJoin(planId, organizerToken, guestToken);
+        inviteAndJoin(planId, organizerToken, guestToken, "guest@qsale.test");
         assertParticipants(planId, organizerToken);
 
         long dateOptionId = createDateOption(planId, organizerToken);
@@ -46,6 +69,78 @@ class Day2ApiIntegrationTest extends AbstractContainerBaseTest {
 
         assertReadyAndClose(planId, organizerToken);
         assertProtectedAndInvalidRequests(planId, organizerToken);
+    }
+
+    @Test
+    void removingParticipantClearsOnlyTheirActivityInThatPlan() throws Exception {
+        String organizerToken = signUp("Organizer", "removal-organizer@qsale.test");
+        String guestEmail = "removal-guest@qsale.test";
+        String guestToken = signUp("Guest", guestEmail);
+        Long organizerId = userRepository.findByEmail("removal-organizer@qsale.test").orElseThrow().getId();
+        Long guestId = userRepository.findByEmail(guestEmail).orElseThrow().getId();
+
+        long firstPlanId = createPlan(organizerToken);
+        long secondPlanId = createPlan(organizerToken);
+        inviteAndJoin(firstPlanId, organizerToken, guestToken, guestEmail);
+        inviteAndJoin(secondPlanId, organizerToken, guestToken, guestEmail);
+
+        long firstOptionId = createDateOption(firstPlanId, organizerToken);
+        long secondOptionId = createDateOption(secondPlanId, organizerToken);
+        vote(firstOptionId, guestToken);
+        vote(secondOptionId, guestToken);
+        addAvailability(firstPlanId, guestToken);
+        addAvailability(secondPlanId, guestToken);
+        confirmCommitment(firstPlanId, guestToken);
+        confirmCommitment(secondPlanId, guestToken);
+
+        mockMvc.perform(get("/api/v1/plans/{planId}/feasibility", firstPlanId)
+                        .header("Authorization", bearer(organizerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.score").value(50))
+                .andExpect(jsonPath("$.confirmedParticipants").value(1));
+
+        mockMvc.perform(delete("/api/v1/plans/{planId}/participants/{userId}", firstPlanId, organizerId)
+                        .header("Authorization", bearer(organizerToken)))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(delete("/api/v1/plans/{planId}/participants/{userId}", firstPlanId, organizerId)
+                        .header("Authorization", bearer(guestToken)))
+                .andExpect(status().isForbidden());
+        assertTrue(voteRepository.existsByOptionIdAndUserId(firstOptionId, guestId));
+
+        mockMvc.perform(delete("/api/v1/plans/{planId}/participants/{userId}", firstPlanId, guestId)
+                        .header("Authorization", bearer(organizerToken)))
+                .andExpect(status().isNoContent());
+
+        assertFalse(participantRepository.existsByPlanIdAndUserId(firstPlanId, guestId));
+        assertFalse(voteRepository.existsByOptionIdAndUserId(firstOptionId, guestId));
+        assertTrue(availabilityRepository.findByPlanIdAndUserId(firstPlanId, guestId).isEmpty());
+        assertTrue(commitmentRepository.findByPlanIdAndUserId(firstPlanId, guestId).isEmpty());
+
+        mockMvc.perform(get("/api/v1/plans/{planId}/feasibility", firstPlanId)
+                        .header("Authorization", bearer(organizerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.score").value(0))
+                .andExpect(jsonPath("$.status").value("NOT_VIABLE"))
+                .andExpect(jsonPath("$.confirmedParticipants").value(0))
+                .andExpect(jsonPath("$.totalParticipants").value(1));
+
+        mockMvc.perform(get("/api/v1/plans/{planId}", firstPlanId)
+                        .header("Authorization", bearer(guestToken)))
+                .andExpect(status().isForbidden());
+
+        assertTrue(participantRepository.existsByPlanIdAndUserId(secondPlanId, guestId));
+        assertTrue(voteRepository.existsByOptionIdAndUserId(secondOptionId, guestId));
+        assertFalse(availabilityRepository.findByPlanIdAndUserId(secondPlanId, guestId).isEmpty());
+        assertTrue(commitmentRepository.findByPlanIdAndUserId(secondPlanId, guestId).isPresent());
+
+        mockMvc.perform(delete("/api/v1/plans/{planId}/participants/{userId}", secondPlanId, guestId)
+                        .header("Authorization", bearer(guestToken)))
+                .andExpect(status().isNoContent());
+
+        assertFalse(participantRepository.existsByPlanIdAndUserId(secondPlanId, guestId));
+        assertFalse(voteRepository.existsByOptionIdAndUserId(secondOptionId, guestId));
+        assertTrue(availabilityRepository.findByPlanIdAndUserId(secondPlanId, guestId).isEmpty());
+        assertTrue(commitmentRepository.findByPlanIdAndUserId(secondPlanId, guestId).isEmpty());
     }
 
     private String signUp(String name, String email) throws Exception {
@@ -85,11 +180,11 @@ class Day2ApiIntegrationTest extends AbstractContainerBaseTest {
         return id.longValue();
     }
 
-    private void inviteAndJoin(long planId, String organizerToken, String guestToken) throws Exception {
+    private void inviteAndJoin(long planId, String organizerToken, String guestToken, String guestEmail) throws Exception {
         mockMvc.perform(post("/api/v1/plans/{planId}/participants", planId)
                         .header("Authorization", bearer(organizerToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"guest@qsale.test\"}"))
+                        .content("{\"email\":\"%s\"}".formatted(guestEmail)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("INVITED"));
 

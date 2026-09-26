@@ -10,4 +10,6 @@ public interface AvailabilityRepository extends JpaRepository<Availability, Long
     List<Availability> findByPlanId(Long planId);
 
     List<Availability> findByPlanIdAndUserId(Long planId, Long userId);
+
+    long deleteByPlanIdAndUserId(Long planId, Long userId);
 }
