@@ -15,5 +15,7 @@ public interface PlanParticipantRepository extends JpaRepository<PlanParticipant
 
     List<PlanParticipant> findByPlanId(Long planId);
 
+    long countByPlanId(Long planId);
+
     long countByPlanIdAndStatus(Long planId, ParticipationStatus status);
 }
