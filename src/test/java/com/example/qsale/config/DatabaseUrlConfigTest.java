@@ -21,6 +21,22 @@ class DatabaseUrlConfigTest {
     }
 
     @Test
+    void acceptsConnectionStringWithoutExplicitPort() {
+        try (HikariDataSource dataSource = config.databaseUrlDataSource(
+                "postgresql://qsale:password@db.internal/qsale")) {
+            assertEquals("jdbc:postgresql://db.internal:5432/qsale", dataSource.getJdbcUrl());
+        }
+    }
+
+    @Test
+    void acceptsPostgresSchemeAndPreservesConnectionOptions() {
+        try (HikariDataSource dataSource = config.databaseUrlDataSource(
+                "postgres://qsale:password@db.internal/qsale?sslmode=require")) {
+            assertEquals("jdbc:postgresql://db.internal:5432/qsale?sslmode=require", dataSource.getJdbcUrl());
+        }
+    }
+
+    @Test
     void rejectsInvalidConnectionString() {
         assertThrows(IllegalArgumentException.class,
                 () -> config.databaseUrlDataSource("https://db.internal/qsale"));
