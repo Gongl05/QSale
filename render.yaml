@@ -22,6 +22,12 @@ services:
         value: "false"
       - key: ADMIN_BOOTSTRAP_ENABLED
         value: "false"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAPS_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        value: "QSale <onboarding@resend.dev>"
 
 databases:
   - name: qsale-postgres

@@ -10,6 +10,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GeoServiceTest {
 
@@ -44,5 +45,29 @@ class GeoServiceTest {
 
         double expectedAverage = geoService.haversineKm(miraflores, barranco) / 2;
         assertEquals(expectedAverage, estimate.avgDistanceKm(), 0.01);
+    }
+
+    @Test
+    void midpointShouldBeBetweenTwoNearbyLocations() {
+        GeoService geoService = new GeoService(RestClient.create(), "");
+
+        var midpoint = geoService.geographicMidpoint(List.of(miraflores, barranco));
+
+        assertTrue(midpoint.latitude() < miraflores.getLatitude());
+        assertTrue(midpoint.latitude() > barranco.getLatitude());
+        assertTrue(midpoint.longitude() > miraflores.getLongitude());
+        assertTrue(midpoint.longitude() < barranco.getLongitude());
+    }
+
+    @Test
+    void midpointShouldHandleTheDateLine() {
+        GeoService geoService = new GeoService(RestClient.create(), "");
+
+        var midpoint = geoService.geographicMidpoint(List.of(
+                new Location(0.0, 179.0, null), new Location(0.0, -179.0, null)));
+
+        assertEquals(0.0, midpoint.latitude(), 0.01);
+        assertEquals(180.0, Math.abs(midpoint.longitude()), 0.01);
+        assertThrows(IllegalArgumentException.class, () -> geoService.geographicMidpoint(List.of()));
     }
 }
