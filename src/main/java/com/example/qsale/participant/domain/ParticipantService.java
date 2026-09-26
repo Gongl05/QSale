@@ -6,6 +6,7 @@ import com.example.qsale.exceptions.DuplicateResourceException;
 import com.example.qsale.exceptions.ForbiddenException;
 import com.example.qsale.exceptions.InvalidOperationException;
 import com.example.qsale.exceptions.ResourceNotFoundException;
+import com.example.qsale.option.events.TravelEstimateRefreshRequestedEvent;
 import com.example.qsale.participant.dto.ParticipantInviteDto;
 import com.example.qsale.participant.dto.ParticipantResponseDto;
 import com.example.qsale.participant.events.ParticipantInvitedEvent;
@@ -78,6 +79,7 @@ public class ParticipantService {
         participant.setJoinedAt(LocalDateTime.now());
         participantRepository.save(participant);
         eventPublisher.publishEvent(new PlanChangedEvent(this, plan.getId()));
+        eventPublisher.publishEvent(new TravelEstimateRefreshRequestedEvent(this, plan.getId()));
         return toResponse(participant);
     }
 
@@ -106,6 +108,9 @@ public class ParticipantService {
         commitmentRepository.deleteByPlanIdAndUserId(planId, userId);
         plan.getParticipants().remove(participant);
         eventPublisher.publishEvent(new PlanChangedEvent(this, plan.getId()));
+        if (participant.getStatus() == ParticipationStatus.JOINED) {
+            eventPublisher.publishEvent(new TravelEstimateRefreshRequestedEvent(this, plan.getId()));
+        }
     }
 
     public void requireJoined(Long planId, User user) {

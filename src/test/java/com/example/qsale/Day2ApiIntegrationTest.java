@@ -2,6 +2,8 @@ package com.example.qsale;
 
 import com.example.qsale.availability.infrastructure.AvailabilityRepository;
 import com.example.qsale.commitment.infrastructure.CommitmentResponseRepository;
+import com.example.qsale.option.domain.PlanOption;
+import com.example.qsale.option.infrastructure.PlanOptionRepository;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
 import com.example.qsale.user.infrastructure.UserRepository;
 import com.example.qsale.vote.infrastructure.VoteRepository;
@@ -16,6 +18,8 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,6 +51,9 @@ class Day2ApiIntegrationTest extends AbstractContainerBaseTest {
 
     @Autowired
     private CommitmentResponseRepository commitmentRepository;
+
+    @Autowired
+    private PlanOptionRepository optionRepository;
 
     @Test
     void completesTheDayTwoPlanLifecycle() throws Exception {
@@ -141,6 +148,72 @@ class Day2ApiIntegrationTest extends AbstractContainerBaseTest {
         assertFalse(voteRepository.existsByOptionIdAndUserId(secondOptionId, guestId));
         assertTrue(availabilityRepository.findByPlanIdAndUserId(secondPlanId, guestId).isEmpty());
         assertTrue(commitmentRepository.findByPlanIdAndUserId(secondPlanId, guestId).isEmpty());
+    }
+
+    @Test
+    void refreshesTravelEstimateAfterMembershipAndLocationChanges() throws Exception {
+        String organizerToken = signUp("Organizer", "travel-organizer@qsale.test");
+        String guestEmail = "travel-guest@qsale.test";
+        String guestToken = signUp("Guest", guestEmail);
+        Long guestId = userRepository.findByEmail(guestEmail).orElseThrow().getId();
+        long firstPlanId = createPlan(organizerToken);
+        long secondPlanId = createPlan(organizerToken);
+        long firstOptionId = createPlaceOption(firstPlanId, organizerToken);
+        long anotherOptionId = createPlaceOption(firstPlanId, organizerToken);
+        long secondOptionId = createPlaceOption(secondPlanId, organizerToken);
+
+        updateLocation(guestToken, -12.1211, -77.0297);
+        inviteAndJoin(firstPlanId, organizerToken, guestToken, guestEmail);
+        inviteAndJoin(secondPlanId, organizerToken, guestToken, guestEmail);
+        Predicate<PlanOption> hasDistance = option -> option.getAvgDistanceKm() != null && option.getAvgDistanceKm() > 0;
+        awaitOption(firstOptionId, hasDistance);
+        awaitOption(anotherOptionId, hasDistance);
+        awaitOption(secondOptionId, hasDistance);
+
+        updateLocation(guestToken, -12.135, -77.022);
+        Predicate<PlanOption> hasZeroDistance = option -> Double.valueOf(0).equals(option.getAvgDistanceKm())
+                && Integer.valueOf(0).equals(option.getAvgTravelMinutes());
+        awaitOption(firstOptionId, hasZeroDistance);
+        awaitOption(anotherOptionId, hasZeroDistance);
+        awaitOption(secondOptionId, hasZeroDistance);
+
+        mockMvc.perform(delete("/api/v1/plans/{planId}/participants/{userId}", firstPlanId, guestId)
+                        .header("Authorization", bearer(organizerToken)))
+                .andExpect(status().isNoContent());
+        Predicate<PlanOption> hasNoEstimate = option -> option.getAvgDistanceKm() == null
+                && option.getAvgTravelMinutes() == null;
+        awaitOption(firstOptionId, hasNoEstimate);
+        awaitOption(anotherOptionId, hasNoEstimate);
+        assertTrue(hasZeroDistance.test(optionRepository.findById(secondOptionId).orElseThrow()));
+
+        mockMvc.perform(delete("/api/v1/plans/{planId}/participants/{userId}", secondPlanId, guestId)
+                        .header("Authorization", bearer(guestToken)))
+                .andExpect(status().isNoContent());
+        awaitOption(secondOptionId, hasNoEstimate);
+    }
+
+    private void updateLocation(String token, double latitude, double longitude) throws Exception {
+        String body = """
+                {"name":"Guest","location":{"latitude":%s,"longitude":%s}}
+                """.formatted(latitude, longitude);
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/users/me")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
+    private void awaitOption(long optionId, Predicate<PlanOption> condition) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        PlanOption option;
+        do {
+            option = optionRepository.findById(optionId).orElseThrow();
+            if (condition.test(option)) {
+                return;
+            }
+            Thread.sleep(50);
+        } while (System.nanoTime() < deadline);
+        assertTrue(condition.test(option), "Travel estimate did not refresh within five seconds");
     }
 
     private String signUp(String name, String email) throws Exception {
