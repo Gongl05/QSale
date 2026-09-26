@@ -50,11 +50,11 @@
     },
     {
       "key": "adminEmail",
-      "value": "admin@qsale.com"
+      "value": ""
     },
     {
       "key": "adminPassword",
-      "value": "Admin1234"
+      "value": ""
     },
     {
       "key": "token",
@@ -521,7 +521,7 @@
               }
             ],
             "url": "{{baseUrl}}/auth/signin",
-            "description": "El usuario ADMIN lo crea data.sql al arrancar. Guarda su token en {{adminToken}}.",
+            "description": "Para crear o rotar la cuenta ADMIN, arranca una vez con ADMIN_BOOTSTRAP_ENABLED=true, ADMIN_BOOTSTRAP_EMAIL y ADMIN_BOOTSTRAP_PASSWORD; luego desactiva el bootstrap. Configura adminEmail y adminPassword con esos valores. Guarda su token en {{adminToken}}.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
@@ -547,7 +547,7 @@
                   }
                 ],
                 "url": "{{baseUrl}}/auth/signin",
-                "description": "El usuario ADMIN lo crea data.sql al arrancar. Guarda su token en {{adminToken}}.",
+                "description": "Para crear o rotar la cuenta ADMIN, arranca una vez con ADMIN_BOOTSTRAP_ENABLED=true, ADMIN_BOOTSTRAP_EMAIL y ADMIN_BOOTSTRAP_PASSWORD; luego desactiva el bootstrap. Configura adminEmail y adminPassword con esos valores. Guarda su token en {{adminToken}}.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
