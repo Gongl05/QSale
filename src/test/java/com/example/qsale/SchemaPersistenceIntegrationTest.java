@@ -3,6 +3,7 @@ package com.example.qsale;
 import com.example.qsale.user.domain.Role;
 import com.example.qsale.user.domain.User;
 import com.example.qsale.user.infrastructure.UserRepository;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
@@ -29,11 +30,15 @@ class SchemaPersistenceIntegrationTest extends AbstractContainerBaseTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private Flyway flyway;
+
     @Test
     @Order(1)
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void savesDataBeforeContextRestart() {
-        assertEquals("update", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
+        assertEquals("validate", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
+        assertEquals("1", flyway.info().current().getVersion().getVersion());
         userRepository.save(new User("Persistence check", EMAIL, "unused-hash", Role.USER));
         assertTrue(userRepository.existsByEmail(EMAIL));
     }
