@@ -18,4 +18,10 @@ public class PlaceOptionListener {
     public void calculateTravelEstimate(PlaceOptionCreatedEvent event) {
         planOptionService.updateTravelEstimate(event.getOptionId());
     }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void refreshPlanTravelEstimates(TravelEstimateRefreshRequestedEvent event) {
+        planOptionService.updatePlanTravelEstimates(event.getPlanId());
+    }
 }

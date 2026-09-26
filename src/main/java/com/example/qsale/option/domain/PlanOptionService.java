@@ -61,19 +61,38 @@ public class PlanOptionService {
 
     @Transactional
     public void updateTravelEstimate(Long optionId) {
-        optionRepository.findById(optionId).ifPresent(option -> {
-            List<Location> origins = participantRepository.findByPlanId(option.getPlan().getId()).stream()
-                    .filter(participant -> participant.getStatus() == ParticipationStatus.JOINED)
-                    .map(participant -> participant.getUser().getLocation())
-                    .filter(Objects::nonNull)
-                    .toList();
-            if (origins.isEmpty() || option.getLocation() == null) {
-                return;
-            }
-            TravelEstimateDto estimate = geoService.estimateAverageTravel(origins, option.getLocation());
-            option.setAvgDistanceKm(estimate.avgDistanceKm());
-            option.setAvgTravelMinutes(estimate.avgTravelMinutes());
-        });
+        optionRepository.findById(optionId)
+                .filter(option -> option.getType() == OptionType.PLACE)
+                .ifPresent(option -> updateTravelEstimate(option, getOrigins(option.getPlan().getId())));
+    }
+
+    @Transactional
+    public void updatePlanTravelEstimates(Long planId) {
+        List<PlanOption> options = optionRepository.findByPlanIdAndType(planId, OptionType.PLACE);
+        if (options.isEmpty()) {
+            return;
+        }
+        List<Location> origins = getOrigins(planId);
+        options.forEach(option -> updateTravelEstimate(option, origins));
+    }
+
+    private List<Location> getOrigins(Long planId) {
+        return participantRepository.findByPlanId(planId).stream()
+                .filter(participant -> participant.getStatus() == ParticipationStatus.JOINED)
+                .map(participant -> participant.getUser().getLocation())
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private void updateTravelEstimate(PlanOption option, List<Location> origins) {
+        if (origins.isEmpty() || option.getLocation() == null) {
+            option.setAvgDistanceKm(null);
+            option.setAvgTravelMinutes(null);
+            return;
+        }
+        TravelEstimateDto estimate = geoService.estimateAverageTravel(origins, option.getLocation());
+        option.setAvgDistanceKm(estimate.avgDistanceKm());
+        option.setAvgTravelMinutes(estimate.avgTravelMinutes());
     }
 
     public List<OptionResponseDto> getOptions(Long planId, OptionType type) {

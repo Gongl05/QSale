@@ -3,12 +3,17 @@ package com.example.qsale.user.domain;
 import com.example.qsale.exceptions.ResourceNotFoundException;
 import com.example.qsale.exceptions.UnauthorizedException;
 import com.example.qsale.location.domain.Location;
+import com.example.qsale.option.events.TravelEstimateRefreshRequestedEvent;
+import com.example.qsale.participant.domain.ParticipationStatus;
+import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
+import com.example.qsale.plan.domain.Plan;
 import com.example.qsale.user.dto.RoleUpdateDto;
 import com.example.qsale.user.dto.UserResponseDto;
 import com.example.qsale.user.dto.UserUpdateDto;
 import com.example.qsale.user.infrastructure.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,13 +23,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final PlanParticipantRepository participantRepository;
     private final ModelMapper modelMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -59,10 +67,23 @@ public class UserService implements UserDetailsService {
     public UserResponseDto updateMe(UserUpdateDto dto) {
         User user = getCurrentUser();
         user.setName(dto.getName());
+        boolean coordinatesChanged = dto.getLocation() != null &&
+                (user.getLocation() == null ||
+                        !Objects.equals(user.getLocation().getLatitude(), dto.getLocation().getLatitude()) ||
+                        !Objects.equals(user.getLocation().getLongitude(), dto.getLocation().getLongitude()));
         if (dto.getLocation() != null) {
             user.setLocation(modelMapper.map(dto.getLocation(), Location.class));
         }
-        return modelMapper.map(userRepository.save(user), UserResponseDto.class);
+        UserResponseDto response = modelMapper.map(userRepository.save(user), UserResponseDto.class);
+        if (coordinatesChanged) {
+            participantRepository.findByUserIdAndStatus(user.getId(), ParticipationStatus.JOINED).stream()
+                    .map(participant -> participant.getPlan())
+                    .filter(Plan::isOpen)
+                    .map(Plan::getId)
+                    .distinct()
+                    .forEach(planId -> eventPublisher.publishEvent(new TravelEstimateRefreshRequestedEvent(this, planId)));
+        }
+        return response;
     }
 
     public List<UserResponseDto> getAllUsers() {
