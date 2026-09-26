@@ -8,6 +8,7 @@ import com.example.qsale.option.domain.OptionType;
 import com.example.qsale.option.domain.PlanOption;
 import com.example.qsale.option.infrastructure.PlanOptionRepository;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
+import com.example.qsale.participant.domain.ParticipationStatus;
 import com.example.qsale.plan.domain.FeasibilityService;
 import com.example.qsale.plan.domain.FeasibilityStatus;
 import com.example.qsale.plan.domain.Plan;
@@ -52,7 +53,7 @@ class FeasibilityServiceTest {
         Plan plan = buildPlan(1L, 2);
         PlanOption date = buildOption(10L, null);
         when(commitmentRepository.countByPlanIdAndStatus(1L, CommitmentStatus.CONFIRMED)).thenReturn(2L);
-        when(participantRepository.countByPlanId(1L)).thenReturn(2L);
+        when(participantRepository.countByPlanIdAndStatus(1L, ParticipationStatus.JOINED)).thenReturn(2L);
         when(optionRepository.findByPlanIdAndType(1L, OptionType.DATE)).thenReturn(List.of(date));
         when(optionRepository.findByPlanIdAndType(1L, OptionType.PLACE)).thenReturn(List.of());
         when(voteRepository.countByOptionId(10L)).thenReturn(2L);
@@ -70,7 +71,7 @@ class FeasibilityServiceTest {
         Plan plan = buildPlan(1L, 2);
         PlanOption date = buildOption(10L, null);
         when(commitmentRepository.countByPlanIdAndStatus(1L, CommitmentStatus.CONFIRMED)).thenReturn(1L);
-        when(participantRepository.countByPlanId(1L)).thenReturn(2L);
+        when(participantRepository.countByPlanIdAndStatus(1L, ParticipationStatus.JOINED)).thenReturn(2L);
         when(optionRepository.findByPlanIdAndType(1L, OptionType.DATE)).thenReturn(List.of(date));
         when(optionRepository.findByPlanIdAndType(1L, OptionType.PLACE)).thenReturn(List.of());
         when(voteRepository.countByOptionId(10L)).thenReturn(2L);

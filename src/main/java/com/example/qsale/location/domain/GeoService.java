@@ -3,10 +3,12 @@ package com.example.qsale.location.domain;
 import com.example.qsale.exceptions.ExternalServiceException;
 import com.example.qsale.location.dto.MatrixRequestDto;
 import com.example.qsale.location.dto.MatrixResponseDto;
+import com.example.qsale.location.dto.MidpointDto;
 import com.example.qsale.location.dto.TravelEstimateDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -28,7 +30,8 @@ public class GeoService {
     private final RestClient mapsRestClient;
     private final String apiKey;
 
-    public GeoService(RestClient mapsRestClient, @Value("${maps.api-key}") String apiKey) {
+    public GeoService(@Qualifier("mapsRestClient") RestClient mapsRestClient,
+                      @Value("${maps.api-key}") String apiKey) {
         this.mapsRestClient = mapsRestClient;
         this.apiKey = apiKey;
     }
@@ -80,6 +83,7 @@ public class GeoService {
 
     private double average(List<List<Double>> matrix) {
         return matrix.stream()
+                .filter(row -> row != null && !row.isEmpty())
                 .map(row -> row.getFirst())
                 .filter(Objects::nonNull)
                 .mapToDouble(Double::doubleValue)
@@ -102,10 +106,37 @@ public class GeoService {
         double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
                 + Math.cos(Math.toRadians(from.getLatitude())) * Math.cos(Math.toRadians(to.getLatitude()))
                 * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double clamped = Math.min(1.0, Math.max(0.0, a));
+        return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
+    }
+
+    public MidpointDto geographicMidpoint(List<Location> locations) {
+        if (locations.isEmpty()) {
+            throw new IllegalArgumentException("At least one location is required");
+        }
+        double x = 0;
+        double y = 0;
+        double z = 0;
+        for (Location location : locations) {
+            double latitude = Math.toRadians(location.getLatitude());
+            double longitude = Math.toRadians(location.getLongitude());
+            x += Math.cos(latitude) * Math.cos(longitude);
+            y += Math.cos(latitude) * Math.sin(longitude);
+            z += Math.sin(latitude);
+        }
+        double horizontal = Math.hypot(x, y);
+        if (Math.hypot(horizontal, z) < 1e-9) {
+            throw new IllegalArgumentException("The geographic midpoint is undefined for these locations");
+        }
+        return new MidpointDto(roundCoordinate(Math.toDegrees(Math.atan2(z, horizontal))),
+                roundCoordinate(Math.toDegrees(Math.atan2(y, x))));
     }
 
     private double round(double value) {
         return Math.round(value * 100.0) / 100.0;
+    }
+
+    private double roundCoordinate(double value) {
+        return Math.round(value * 1_000_000.0) / 1_000_000.0;
     }
 }

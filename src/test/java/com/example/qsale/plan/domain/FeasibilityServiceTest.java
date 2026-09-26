@@ -7,6 +7,7 @@ import com.example.qsale.option.domain.OptionType;
 import com.example.qsale.option.domain.PlanOption;
 import com.example.qsale.option.infrastructure.PlanOptionRepository;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
+import com.example.qsale.participant.domain.ParticipationStatus;
 import com.example.qsale.user.domain.UserService;
 import com.example.qsale.vote.infrastructure.VoteRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -104,7 +105,7 @@ class FeasibilityServiceTest {
     }
 
     private void stubParticipantAndAvailabilityCounts() {
-        when(participantRepository.countByPlanId(1L)).thenReturn(2L);
+        when(participantRepository.countByPlanIdAndStatus(1L, ParticipationStatus.JOINED)).thenReturn(2L);
         when(availabilityRepository.findByPlanId(1L)).thenReturn(List.of());
     }
 }

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "QSale API",
-    "description": "Documentación y pruebas del backend de QSale (CS 2031 DBP 2026-2): coordinación de planes grupales con invitaciones, votación de fechas y lugares, disponibilidad, nivel de compromiso y semáforo de viabilidad.\n\n**Cómo usarla:** levantar `docker compose up -d` y la app, y ejecutar las carpetas en orden (o todo con el Collection Runner). Cada request guarda en variables de la colección los tokens e ids que usan los siguientes. Con `DDL_AUTO=create-drop` la base se recrea al reiniciar la app.\n\n**Autorización:** Bearer `{{token}}` (organizadora Ana) configurado a nivel de colección. Los requests del invitado usan `{{guestToken}}` y los de administración `{{adminToken}}`. Los endpoints de auth y el health check van sin token.\n\n**Variables:** `hostUrl` (cambiarla por la URL del deploy), `baseUrl`, credenciales de prueba y los ids que se van guardando.",
+    "description": "Documentación y pruebas del backend de QSale (CS 2031 DBP 2026-2): coordinación de planes grupales con invitaciones, votación de fechas y lugares, disponibilidad, nivel de compromiso, geografía y semáforo de viabilidad.\n\n**Cómo usarla:** levantar `docker compose up -d` y la app, y ejecutar las carpetas en orden (o todo con el Collection Runner). Cada request guarda en variables de la colección los tokens e ids que usan los siguientes. Flyway versiona el esquema y Hibernate usa `DDL_AUTO=validate` por defecto.\n\n**Autorización:** Bearer `{{token}}` (organizadora Ana) configurado a nivel de colección. Los requests del invitado usan `{{guestToken}}` y los de administración `{{adminToken}}`. Los endpoints de auth y el health check van sin token.\n\n**Variables:** `hostUrl` (cambiarla por la URL del deploy), `baseUrl`, credenciales de prueba y los ids que se van guardando.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1247,6 +1247,48 @@
                 }
               ],
               "body": "{\n  \"budget\": 60,\n  \"closedAt\": null,\n  \"createdAt\": \"2026-09-25T20:51:45.784503\",\n  \"creatorId\": 2,\n  \"creatorName\": \"Ana Torres\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"feasibilityScore\": 0,\n  \"feasibilityStatus\": \"NOT_VIABLE\",\n  \"id\": 1,\n  \"inviteCode\": \"3B021B05\",\n  \"minParticipants\": 2,\n  \"name\": \"Cena viernes\",\n  \"status\": \"OPEN\",\n  \"tentativeEndDate\": \"2026-10-10\",\n  \"tentativeStartDate\": \"2026-10-10\",\n  \"type\": \"DINNER\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "qsale-061",
+          "name": "Punto medio geografico del plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Incluye cobertura de ubicaciones\", () => { const body = pm.response.json(); pm.expect(body).to.have.property(\"locatedParticipants\"); pm.expect(body).to.have.property(\"joinedParticipants\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/geography",
+            "description": "Solo miembros del plan o ADMIN. Calcula el punto medio esferico de participantes JOINED con ubicacion. Si hay menos de dos, midpoint es null; los contadores muestran la cobertura. Las distancias y tiempos por alternativa PLACE estan en GET /plans/{{planId}}/options."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/plans/{{planId}}/geography"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"midpoint\": {\"latitude\": -12.134851, \"longitude\": -77.0258},\n  \"locatedParticipants\": 2,\n  \"joinedParticipants\": 2\n}"
             }
           ]
         },

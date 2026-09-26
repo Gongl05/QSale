@@ -56,7 +56,7 @@ public class PlanOptionService {
         if (option.getType() == OptionType.PLACE) {
             eventPublisher.publishEvent(new PlaceOptionCreatedEvent(this, option.getId()));
         }
-        return toResponse(option, participantRepository.countByPlanId(planId));
+        return toResponse(option, participantRepository.countByPlanIdAndStatus(planId, ParticipationStatus.JOINED));
     }
 
     @Transactional
@@ -100,7 +100,7 @@ public class PlanOptionService {
         List<PlanOption> options = type == null
                 ? optionRepository.findByPlanId(planId)
                 : optionRepository.findByPlanIdAndType(planId, type);
-        long participants = participantRepository.countByPlanId(planId);
+        long participants = participantRepository.countByPlanIdAndStatus(planId, ParticipationStatus.JOINED);
         return options.stream()
                 .map(option -> toResponse(option, participants))
                 .sorted(Comparator.comparingInt(OptionResponseDto::getScore).reversed())

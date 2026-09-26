@@ -7,6 +7,7 @@ import com.example.qsale.option.domain.OptionType;
 import com.example.qsale.option.domain.PlanOption;
 import com.example.qsale.option.infrastructure.PlanOptionRepository;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
+import com.example.qsale.participant.domain.ParticipationStatus;
 import com.example.qsale.plan.dto.FeasibilityResponseDto;
 import com.example.qsale.user.domain.UserService;
 import com.example.qsale.vote.infrastructure.VoteRepository;
@@ -37,7 +38,8 @@ public class FeasibilityService {
         long confirmed = countConfirmed(planId);
         int score = calculateScore(plan, confirmed);
         return new FeasibilityResponseDto(plan.getId(), score, resolveStatus(score, confirmed, plan.getMinParticipants()),
-                confirmed, plan.getMinParticipants(), participantRepository.countByPlanId(planId));
+                confirmed, plan.getMinParticipants(),
+                participantRepository.countByPlanIdAndStatus(planId, ParticipationStatus.JOINED));
     }
 
     @Transactional
@@ -67,7 +69,8 @@ public class FeasibilityService {
     }
 
     private int calculateScore(Plan plan, long confirmed) {
-        long participants = Math.max(participantRepository.countByPlanId(plan.getId()), 1);
+        long participants = Math.max(
+                participantRepository.countByPlanIdAndStatus(plan.getId(), ParticipationStatus.JOINED), 1);
         double confirmationRatio = Math.min((double) confirmed / plan.getMinParticipants(), 1.0);
         double agreementRatio = calculateAgreement(plan.getId(), participants);
         double availabilityRatio = Math.min((double) countUsersWithAvailability(plan.getId()) / participants, 1.0);
