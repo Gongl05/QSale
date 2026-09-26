@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: qsale-api
+    runtime: docker
+    plan: free
+    region: ohio
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: qsale-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=55.0 -XX:ActiveProcessorCount=2
+      - key: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+        value: "3"
+      - key: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+        value: "0"
+      - key: SHOW_SQL
+        value: "false"
+      - key: ADMIN_BOOTSTRAP_ENABLED
+        value: "false"
+
+databases:
+  - name: qsale-postgres
+    databaseName: qsale
+    plan: free
+    postgresMajorVersion: "16"
+    region: ohio
+    ipAllowList: []
