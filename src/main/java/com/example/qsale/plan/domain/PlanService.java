@@ -23,6 +23,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -42,6 +43,7 @@ public class PlanService {
     private final ModelMapper modelMapper;
     private final ApplicationEventPublisher eventPublisher;
 
+    @PreAuthorize("isAuthenticated()")
     @Transactional
     public PlanDetailDto createPlan(PlanRequestDto dto) {
         validateDates(dto);
@@ -54,6 +56,8 @@ public class PlanService {
         return modelMapper.map(planRepository.save(plan), PlanDetailDto.class);
     }
 
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public PlanPageResponseDto getMyPlans(PlanStatus status, int page, int size) {
         validatePagination(page, size);
         User user = userService.getCurrentUser();
@@ -66,11 +70,14 @@ public class PlanService {
                 plans.getNumber(), plans.getSize(), plans.getTotalElements(), plans.getTotalPages());
     }
 
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
+    @Transactional(readOnly = true)
     public PlanDetailDto getPlan(Long planId) {
         Plan plan = planAccessService.getPlanAsMember(planId, userService.getCurrentUser());
         return modelMapper.map(plan, PlanDetailDto.class);
     }
 
+    @PreAuthorize("@planAuthorization.isOrganizer(#planId, authentication)")
     @Transactional
     public PlanDetailDto updatePlan(Long planId, PlanRequestDto dto) {
         validateDates(dto);
@@ -83,6 +90,7 @@ public class PlanService {
         return response;
     }
 
+    @PreAuthorize("@planAuthorization.isOrganizer(#planId, authentication)")
     @Transactional
     public PlanDetailDto closePlan(Long planId) {
         Plan plan = planAccessService.getPlanAsOrganizer(planId, userService.getCurrentUser());
@@ -96,6 +104,7 @@ public class PlanService {
         return changeStatus(plan, PlanStatus.CLOSED);
     }
 
+    @PreAuthorize("@planAuthorization.isOrganizer(#planId, authentication)")
     @Transactional
     public PlanDetailDto cancelPlan(Long planId) {
         Plan plan = planAccessService.getPlanAsOrganizer(planId, userService.getCurrentUser());
@@ -103,6 +112,7 @@ public class PlanService {
         return changeStatus(plan, PlanStatus.CANCELLED);
     }
 
+    @PreAuthorize("@planAuthorization.isOrganizer(#planId, authentication)")
     @Transactional
     public void deletePlan(Long planId) {
         Plan plan = planAccessService.getPlanAsOrganizer(planId, userService.getCurrentUser());

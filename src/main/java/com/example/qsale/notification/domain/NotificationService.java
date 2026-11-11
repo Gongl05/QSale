@@ -16,6 +16,7 @@ import com.example.qsale.user.domain.UserService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -34,6 +35,8 @@ public class NotificationService {
     private final UserService userService;
     private final ModelMapper modelMapper;
 
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public List<NotificationResponseDto> getMyNotifications(boolean unreadOnly) {
         Long userId = userService.getCurrentUser().getId();
         List<Notification> notifications = unreadOnly
@@ -44,6 +47,7 @@ public class NotificationService {
                 .toList();
     }
 
+    @PreAuthorize("isAuthenticated()")
     @Transactional
     public NotificationResponseDto markAsRead(Long notificationId) {
         User user = userService.getCurrentUser();

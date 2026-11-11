@@ -22,10 +22,12 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -41,11 +43,12 @@ public class ParticipantService {
     private final ModelMapper modelMapper;
     private final ApplicationEventPublisher eventPublisher;
 
+    @PreAuthorize("@planAuthorization.isOrganizer(#planId, authentication)")
     @Transactional
     public ParticipantResponseDto inviteParticipant(Long planId, ParticipantInviteDto dto) {
         Plan plan = planAccessService.getPlanAsOrganizer(planId, userService.getCurrentUser());
         planAccessService.requireOpen(plan);
-        User invitee = userService.getUserByEmail(dto.getEmail().toLowerCase());
+        User invitee = userService.getUserByEmail(dto.getEmail().toLowerCase(Locale.ROOT));
         if (participantRepository.existsByPlanIdAndUserId(planId, invitee.getId())) {
             throw new DuplicateResourceException(invitee.getEmail() + " is already a participant of plan " + planId);
         }
@@ -55,6 +58,7 @@ public class ParticipantService {
         return toResponse(participant);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @Transactional
     public ParticipantResponseDto joinByInviteCode(String inviteCode) {
         Plan plan = planRepository.findByInviteCode(inviteCode.toUpperCase())
@@ -62,10 +66,15 @@ public class ParticipantService {
         return join(plan, userService.getCurrentUser());
     }
 
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
     @Transactional
     public ParticipantResponseDto acceptInvitation(Long planId) {
         User user = userService.getCurrentUser();
-        return join(planAccessService.getPlanAsMember(planId, user), user);
+        Plan plan = planAccessService.getPlanAsMember(planId, user);
+        if (!participantRepository.existsByPlanIdAndUserId(planId, user.getId())) {
+            throw new ForbiddenException("You have not been invited to plan " + planId);
+        }
+        return join(plan, user);
     }
 
     private ParticipantResponseDto join(Plan plan, User user) {
@@ -83,6 +92,8 @@ public class ParticipantService {
         return toResponse(participant);
     }
 
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
+    @Transactional(readOnly = true)
     public List<ParticipantResponseDto> getParticipants(Long planId) {
         planAccessService.getPlanAsMember(planId, userService.getCurrentUser());
         return participantRepository.findByPlanId(planId).stream()
@@ -90,6 +101,7 @@ public class ParticipantService {
                 .toList();
     }
 
+    @PreAuthorize("@planAuthorization.canRemoveParticipant(#planId, #userId, authentication)")
     @Transactional
     public void removeParticipant(Long planId, Long userId) {
         User currentUser = userService.getCurrentUser();
@@ -114,12 +126,7 @@ public class ParticipantService {
     }
 
     public void requireJoined(Long planId, User user) {
-        boolean joined = participantRepository.findByPlanIdAndUserId(planId, user.getId())
-                .map(participant -> participant.getStatus() == ParticipationStatus.JOINED)
-                .orElse(false);
-        if (!joined) {
-            throw new ForbiddenException("You must join plan " + planId + " before performing this action");
-        }
+        planAccessService.requireJoined(planId, user);
     }
 
     private ParticipantResponseDto toResponse(PlanParticipant participant) {

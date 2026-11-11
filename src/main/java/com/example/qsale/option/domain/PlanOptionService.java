@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
@@ -42,17 +43,20 @@ public class PlanOptionService {
     private final ModelMapper modelMapper;
     private final ApplicationEventPublisher eventPublisher;
 
+    @PreAuthorize("@planAuthorization.isJoined(#planId, authentication)")
     @Transactional
     public OptionResponseDto createOption(Long planId, OptionRequestDto dto) {
         User user = userService.getCurrentUser();
         Plan plan = planAccessService.getPlanAsMember(planId, user);
         planAccessService.requireOpen(plan);
+        planAccessService.requireJoined(planId, user);
         validateOption(dto);
 
         PlanOption option = modelMapper.map(dto, PlanOption.class);
         option.setProposedBy(user);
         plan.addOption(option);
         optionRepository.save(option);
+        eventPublisher.publishEvent(new PlanChangedEvent(this, planId));
         if (option.getType() == OptionType.PLACE) {
             eventPublisher.publishEvent(new PlaceOptionCreatedEvent(this, option.getId()));
         }
@@ -95,6 +99,8 @@ public class PlanOptionService {
         option.setAvgTravelMinutes(estimate.avgTravelMinutes());
     }
 
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
+    @Transactional(readOnly = true)
     public List<OptionResponseDto> getOptions(Long planId, OptionType type) {
         planAccessService.getPlanAsMember(planId, userService.getCurrentUser());
         List<PlanOption> options = type == null
@@ -107,6 +113,7 @@ public class PlanOptionService {
                 .toList();
     }
 
+    @PreAuthorize("@planAuthorization.isOrganizer(#planId, authentication)")
     @Transactional
     public void deleteOption(Long planId, Long optionId) {
         Plan plan = planAccessService.getPlanAsOrganizer(planId, userService.getCurrentUser());

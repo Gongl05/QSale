@@ -5,12 +5,17 @@ import com.example.qsale.location.domain.Location;
 import com.example.qsale.location.dto.TravelEstimateDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GeoServiceTest {
 
@@ -69,5 +74,43 @@ class GeoServiceTest {
         assertEquals(0.0, midpoint.latitude(), 0.01);
         assertEquals(180.0, Math.abs(midpoint.longitude()), 0.01);
         assertThrows(IllegalArgumentException.class, () -> geoService.geographicMidpoint(List.of()));
+    }
+
+    @Test
+    void incompleteRoutesUseTheSameFallbackForTheEntireGroup() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://maps.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("https://maps.test/v2/matrix/driving-car"))
+                .andRespond(withSuccess("{\"distances\":[[0.01],[null]],\"durations\":[[10],[null]]}",
+                        MediaType.APPLICATION_JSON));
+        GeoService service = new GeoService(builder.build(), "test-key");
+
+        TravelEstimateDto estimate = service.estimateAverageTravel(List.of(miraflores, barranco), barranco);
+
+        assertEquals(service.haversineKm(miraflores, barranco) / 2, estimate.avgDistanceKm(), 0.01);
+        server.verify();
+    }
+
+    @Test
+    void completeRoutesAverageAllParticipantsAndConvertSecondsToMinutes() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://maps.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("https://maps.test/v2/matrix/driving-car"))
+                .andRespond(withSuccess("{\"distances\":[[1],[3]],\"durations\":[[60],[180]]}",
+                        MediaType.APPLICATION_JSON));
+        GeoService service = new GeoService(builder.build(), "test-key");
+
+        TravelEstimateDto estimate = service.estimateAverageTravel(List.of(miraflores, barranco), barranco);
+
+        assertEquals(2.0, estimate.avgDistanceKm());
+        assertEquals(2, estimate.avgTravelMinutes());
+        server.verify();
+    }
+
+    @Test
+    void oppositeLocationsHaveNoUniqueMidpoint() {
+        GeoService service = new GeoService(RestClient.create(), "");
+        assertNull(service.geographicMidpoint(List.of(new Location(0.0, 0.0, null),
+                new Location(0.0, 180.0, null))));
     }
 }

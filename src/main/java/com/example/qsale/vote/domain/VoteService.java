@@ -15,6 +15,7 @@ import com.example.qsale.vote.infrastructure.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -28,6 +29,7 @@ public class VoteService {
     private final UserService userService;
     private final ApplicationEventPublisher eventPublisher;
 
+    @PreAuthorize("@planAuthorization.canVote(#optionId, authentication)")
     @Transactional
     public VoteResponseDto vote(Long optionId) {
         User user = userService.getCurrentUser();
@@ -41,6 +43,7 @@ public class VoteService {
         return new VoteResponseDto(optionId, voteRepository.countByOptionId(optionId));
     }
 
+    @PreAuthorize("@planAuthorization.canVote(#optionId, authentication)")
     @Transactional
     public void removeVote(Long optionId) {
         User user = userService.getCurrentUser();

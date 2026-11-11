@@ -20,6 +20,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -59,10 +60,13 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email " + email));
     }
 
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public UserResponseDto getMe() {
         return modelMapper.map(getCurrentUser(), UserResponseDto.class);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @Transactional
     public UserResponseDto updateMe(UserUpdateDto dto) {
         User user = getCurrentUser();
@@ -86,12 +90,15 @@ public class UserService implements UserDetailsService {
         return response;
     }
 
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @Transactional(readOnly = true)
     public List<UserResponseDto> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(user -> modelMapper.map(user, UserResponseDto.class))
                 .toList();
     }
 
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Transactional
     public UserResponseDto updateRole(Long userId, RoleUpdateDto dto) {
         User user = getUserById(userId);

@@ -25,6 +25,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.OptimisticLock;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@DynamicUpdate
 @Table(name = "plans", indexes = {
         @Index(columnList = "creator_id"),
         @Index(columnList = "status")

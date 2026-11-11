@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -29,6 +30,7 @@ public class CommitmentService {
     private final ApplicationEventPublisher eventPublisher;
     private final ModelMapper modelMapper;
 
+    @PreAuthorize("@planAuthorization.isJoined(#planId, authentication)")
     @Transactional
     public CommitmentResponseDto respond(Long planId, CommitmentRequestDto dto) {
         User user = userService.getCurrentUser();
@@ -46,6 +48,8 @@ public class CommitmentService {
         return modelMapper.map(commitment, CommitmentResponseDto.class);
     }
 
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
+    @Transactional(readOnly = true)
     public List<CommitmentResponseDto> getCommitments(Long planId) {
         planAccessService.getPlanAsMember(planId, userService.getCurrentUser());
         return commitmentRepository.findByPlanId(planId).stream()

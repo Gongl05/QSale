@@ -1501,6 +1501,50 @@
           ]
         },
         {
+          "name": "403 - Invitado pendiente no puede proponer opciones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/options",
+            "description": "Incluso una cuenta ADMIN debe aceptar su invitacion antes de contribuir como participante.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":\"DATE\",\"label\":\"Invitacion pendiente\",\"startsAt\":\"{{futureDate}}T18:00:00\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "id": "qsale-020",
           "name": "Aceptar invitación (admin invitado)",
           "event": [
@@ -3424,6 +3468,110 @@
               "body": "{\n  \"timestamp\": \"2026-09-25T20:51:52.8973614\",\n  \"status\": 409,\n  \"error\": \"Conflict\",\n  \"message\": \"Plan 1 is CLOSED and cannot be modified\",\n  \"path\": \"/api/v1/plans/1/options\"\n}"
             }
           ]
+        },
+        {
+          "name": "403 - Invitado no puede cerrar el plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/plans/{{planId}}/close",
+            "description": "Ser participante JOINED no otorga permisos de organizador. La autorizacion se verifica antes del estado del plan.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "403 - Usuario no puede promoverse a administrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/users/{{guestUserId}}/role",
+            "description": "Cambiar roles requiere ADMIN tanto en la ruta como en el servicio.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{guestToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"role\":\"ADMIN\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "401 - Refresh token no sirve para acceder a recursos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/me",
+            "description": "El filtro rechaza tokens de tipo refresh en endpoints que requieren un token de acceso.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refreshToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
         }
       ]
     },

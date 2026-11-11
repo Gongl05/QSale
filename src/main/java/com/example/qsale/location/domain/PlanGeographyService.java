@@ -8,6 +8,7 @@ import com.example.qsale.plan.domain.PlanAccessService;
 import com.example.qsale.user.domain.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -22,6 +23,7 @@ public class PlanGeographyService {
     private final UserService userService;
     private final GeoService geoService;
 
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
     @Transactional(readOnly = true)
     public PlanGeographyDto getGeography(Long planId) {
         planAccessService.getPlanAsMember(planId, userService.getCurrentUser());
