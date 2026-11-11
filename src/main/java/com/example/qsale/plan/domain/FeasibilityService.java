@@ -13,6 +13,7 @@ import com.example.qsale.user.domain.UserService;
 import com.example.qsale.vote.infrastructure.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
@@ -33,6 +34,8 @@ public class FeasibilityService {
     private final PlanOptionRepository optionRepository;
     private final VoteRepository voteRepository;
 
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
+    @Transactional(readOnly = true)
     public FeasibilityResponseDto getFeasibility(Long planId) {
         Plan plan = planAccessService.getPlanAsMember(planId, userService.getCurrentUser());
         long confirmed = countConfirmed(planId);
@@ -44,8 +47,8 @@ public class FeasibilityService {
 
     @Transactional
     public boolean recalculate(Long planId) {
-        Plan plan = planAccessService.getPlan(planId);
-        if (!plan.isOpen()) {
+        Plan plan = planAccessService.findPlanForUpdate(planId).orElse(null);
+        if (plan == null || !plan.isOpen()) {
             return false;
         }
         FeasibilityStatus previous = plan.getFeasibilityStatus();

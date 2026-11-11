@@ -16,7 +16,6 @@ import org.springframework.web.client.RestClientException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.IntStream;
 
 @Service
@@ -63,29 +62,31 @@ public class GeoService {
                     .body(request)
                     .retrieve()
                     .body(MatrixResponseDto.class);
-            return toEstimate(response);
+            return toEstimate(response, origins.size());
         } catch (RestClientException e) {
             throw new ExternalServiceException("OpenRouteService request failed: " + e.getMessage());
         }
     }
 
-    private TravelEstimateDto toEstimate(MatrixResponseDto response) {
+    private TravelEstimateDto toEstimate(MatrixResponseDto response, int originCount) {
         if (response == null || response.distances() == null || response.durations() == null) {
             throw new ExternalServiceException("OpenRouteService returned an empty matrix");
         }
-        double avgKm = average(response.distances());
-        double avgSeconds = average(response.durations());
+        double avgKm = average(response.distances(), originCount);
+        double avgSeconds = average(response.durations(), originCount);
         if (Double.isNaN(avgKm) || Double.isNaN(avgSeconds)) {
             throw new ExternalServiceException("OpenRouteService could not route any origin");
         }
         return new TravelEstimateDto(round(avgKm), (int) Math.round(avgSeconds / 60));
     }
 
-    private double average(List<List<Double>> matrix) {
+    private double average(List<List<Double>> matrix, int originCount) {
+        if (matrix.size() != originCount || matrix.stream().anyMatch(row -> row == null || row.size() != 1
+                || row.getFirst() == null || !Double.isFinite(row.getFirst()) || row.getFirst() < 0)) {
+            throw new ExternalServiceException("OpenRouteService returned an incomplete matrix");
+        }
         return matrix.stream()
-                .filter(row -> row != null && !row.isEmpty())
                 .map(row -> row.getFirst())
-                .filter(Objects::nonNull)
                 .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(Double.NaN);
@@ -126,7 +127,7 @@ public class GeoService {
         }
         double horizontal = Math.hypot(x, y);
         if (Math.hypot(horizontal, z) < 1e-9) {
-            throw new IllegalArgumentException("The geographic midpoint is undefined for these locations");
+            return null;
         }
         return new MidpointDto(roundCoordinate(Math.toDegrees(Math.atan2(z, horizontal))),
                 roundCoordinate(Math.toDegrees(Math.atan2(y, x))));

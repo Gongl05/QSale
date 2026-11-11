@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -31,6 +32,7 @@ public class AvailabilityService {
     private final ApplicationEventPublisher eventPublisher;
     private final ModelMapper modelMapper;
 
+    @PreAuthorize("@planAuthorization.isJoined(#planId, authentication)")
     @Transactional
     public AvailabilityResponseDto addAvailability(Long planId, AvailabilityRequestDto dto) {
         validateTimes(dto);
@@ -46,6 +48,8 @@ public class AvailabilityService {
         return modelMapper.map(availability, AvailabilityResponseDto.class);
     }
 
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
+    @Transactional(readOnly = true)
     public List<AvailabilityResponseDto> getAvailabilities(Long planId) {
         planAccessService.getPlanAsMember(planId, userService.getCurrentUser());
         return availabilityRepository.findByPlanId(planId).stream()
@@ -53,6 +57,7 @@ public class AvailabilityService {
                 .toList();
     }
 
+    @PreAuthorize("@planAuthorization.isJoined(#planId, authentication)")
     @Transactional
     public void deleteAvailability(Long planId, Long availabilityId) {
         User user = userService.getCurrentUser();

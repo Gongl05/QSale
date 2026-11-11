@@ -13,11 +13,15 @@ public class RestClientConfig {
 
     @Bean
     public RestClient mapsRestClient(@Value("${maps.base-url}") String baseUrl) {
-        return RestClient.builder().baseUrl(baseUrl).build();
+        return externalClient(baseUrl);
     }
 
     @Bean
     public RestClient resendRestClient(@Value("${resend.base-url}") String baseUrl) {
+        return externalClient(baseUrl);
+    }
+
+    private RestClient externalClient(String baseUrl) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(Duration.ofSeconds(10));
