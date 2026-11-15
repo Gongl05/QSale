@@ -14,7 +14,11 @@ El cumplimiento individual fue indicado por el equipo. Los aportes deben detalla
 
 **Despliegue:** AWS EC2 + Dokploy + RDS PostgreSQL · **Postman:** [`postman_collection.json`](postman_collection.json)
 
-**URL verificada el 14 de noviembre de 2026:** [Health](https://api.98.81.93.181.sslip.io/actuator/health) · [Swagger UI](https://api.98.81.93.181.sslip.io/swagger-ui.html). Los recursos se detienen entre sesiones para conservar el crédito del laboratorio. Al iniciar EC2, comprueba su IP pública y actualiza el dominio si cambió.
+**URLs verificadas el 15 de noviembre de 2026:** [Web](https://web.98.94.89.19.sslip.io) · [Health](https://api.98.94.89.19.sslip.io/actuator/health) · [Swagger UI](https://api.98.94.89.19.sslip.io/swagger-ui.html).
+
+**Publicación móvil:** [QSale en Expo, rama preview](https://expo.dev/accounts/gonzagl05/projects/qsale/updates/dc186f21-174e-4b8a-95c4-02d23966730a). Los paquetes Android/iOS están publicados. El equipo comprobó la apertura en Expo Go en iPhone con datos móviles y Metro detenido, y guardó y recuperó la ubicación del perfil.
+
+Los recursos AWS se detienen entre sesiones para conservar el crédito del laboratorio; las URLs requieren que EC2 y RDS estén encendidas. Al iniciar EC2, comprueba su IP pública. Si cambia, actualiza los dominios, las URLs de los servicios y la publicación móvil.
 
 ---
 
@@ -141,7 +145,7 @@ En desarrollo, JavaMailSender usa Mailpit en `localhost:1025`, con bandeja en `h
 
 ## 8. GitHub & Management
 
-El equipo integra cambios mediante pull requests hacia `main`. `.github/workflows/ci.yml` ejecuta `mvn -B clean verify` con Java 21; no despliega. Revisiones y tareas se registran en GitHub Issues/Projects. El CI del PR #10 quedó bloqueado por facturación de GitHub; el PR documenta la validación local. Los secretos se configuran en Dokploy.
+El equipo integra cambios mediante pull requests hacia `main`. `.github/workflows/ci.yml` ejecuta `mvn -B clean verify` con Java 21; `.github/workflows/frontend.yml` comprueba los clientes y sus paquetes. Estos workflows no despliegan. GitHub Actions no inicia los jobs debido al bloqueo de facturación de la cuenta; el equipo abrió una solicitud de soporte. Los PR documentan las validaciones locales, sin presentarlas como ejecuciones remotas aprobadas. Los secretos se configuran en Dokploy.
 
 ## 9. Ejecución local y despliegue
 
@@ -210,6 +214,8 @@ Exportar comprueba la generación de los paquetes; la cámara, el GPS, los permi
 
 El proyecto está vinculado a [@gonzagl05/qsale en Expo](https://expo.dev/accounts/gonzagl05/projects/qsale). `expo-updates`, la URL del proyecto y los canales de desarrollo, vista previa y producción están configurados. La vinculación no publica la app ni inicia compilaciones.
 
+La actualización `dc186f21-174e-4b8a-95c4-02d23966730a`, basada en el commit `f40ce94`, está publicada para Android e iOS con la API y la web HTTPS verificadas. El manifiesto iOS y la descarga del paquete respondieron correctamente; su hash coincidió y el paquete contiene ambas URLs públicas. El equipo abrió esa publicación en Expo Go en iPhone con datos móviles y Metro detenido; comprobó GPS, guardado del perfil y recuperación de la ubicación después de cerrar sesión y volver a entrar.
+
 Antes de publicar, configura `EXPO_PUBLIC_API_URL` con la API HTTPS verificada y `EXPO_PUBLIC_WEB_URL` con el origen web HTTPS en el entorno `preview` de Expo. Desde `apps/mobile`, ejecuta:
 
 ```sh
@@ -221,6 +227,8 @@ Abre el enlace de la actualización en el dispositivo que usará el docente y co
 ### Desplegar la web en el servidor existente
 
 Usa el repositorio como contexto raíz y `apps/web/Dockerfile` como Dockerfile. El contenedor sirve la web y el intermediario de sesión en el puerto `3001`. Configura `NODE_ENV=production`, `APP_ORIGIN` con el origen HTTPS público de la web y `API_URL` con la raíz real de la API, incluida la terminación `/api/v1`. Dokploy debe publicar el puerto `3001` mediante HTTPS. No hace falta crear otra instancia EC2, otra base de datos ni una IP elástica para este servicio.
+
+El servicio `qsale-web` usa el proveedor **Git**, URL `https://github.com/Gongl05/QSale.git`, rama `main`, Build Path `/`, Dockerfile Path `apps/web/Dockerfile` y Docker Context Path `.`. Esta conexión HTTPS al repositorio público permite desplegar manualmente sin una instalación de GitHub App. La configuración de despliegues automáticos requiere una comprobación separada.
 
 Comprueba `/health`, acceso y recarga de sesión, rutas directas como `/plans/ID`, invitaciones entre dos usuarios y ambas paginaciones desde la URL pública. El despliegue de la API debe incluir las migraciones V1 y V2 antes de usar los clientes. Configura la app móvil con la URL HTTPS vigente y comprueba ambos clientes contra la misma API. La verificación local no sustituye esas comprobaciones públicas ni la disponibilidad durante la evaluación.
 
@@ -250,9 +258,25 @@ Para retomar el despliegue existente:
 
 1. Revisa el saldo de AWS Academy e inicia RDS y EC2 cuando necesites probar en AWS.
 2. Espera RDS **Disponible** y EC2 **En ejecución**; comprueba la IP pública de EC2.
-3. Si cambió la IP, actualiza el host `api.IP_PUBLICA.sslip.io` en **Domains**, con HTTPS y puerto `8080`.
-4. Comprueba `/actuator/health` (`UP`), Swagger y `/api/v1/users/me` sin token (`401`). Si cambió el código o el entorno, despliega `main` desde Dokploy y repite las comprobaciones.
-5. Configura `hostUrl` de Postman con la URL HTTPS vigente y prueba registro, login y el flujo de un plan.
+3. Si cambió la IP, actualiza los hosts `api.IP_PUBLICA.sslip.io` y `web.IP_PUBLICA.sslip.io` en **Domains**, con HTTPS y puertos internos `8080` y `3001`, respectivamente. En la web, actualiza `APP_ORIGIN` y `API_URL`; en el entorno de Expo, actualiza ambas `EXPO_PUBLIC_*` y publica otra actualización.
+4. Comprueba `/actuator/health` de la API (`UP`), `/health` de la web, Swagger y `/api/v1/users/me` sin token (`401`). Si cambió el código o el entorno, despliega `main` desde Dokploy y repite las comprobaciones. Construye backend y web por separado para limitar el uso de memoria del servidor.
+5. Configura `hostUrl` de Postman con la URL HTTPS vigente y prueba registro, login y el flujo de un plan. Las cuentas y los datos del entorno local no se transfieren automáticamente a RDS.
+
+### Comprobación pública del 15 de noviembre
+
+La API pasó registro, inicio y renovación de sesión, acceso JWT, creación y edición persistidas de un plan, pertenencia del organizador, propuesta de fecha, voto y paginación de notificaciones. La web pasó registro, cookie de renovación HttpOnly/Secure/SameSite=Lax, recarga de sesión y ruta de detalle, creación del plan, propuesta a quince minutos de la hora de Lima y voto. Las vistas de escritorio, tableta y teléfono no presentaron desbordamiento horizontal; el navegador no registró errores de renderizado. Los planes temporales se eliminaron al terminar.
+
+El recorrido público con dos cuentas separadas comprobó unión por código, propuestas compartidas, votos, compromiso de asistencia, permisos de organizador, cierre persistido para ambos usuarios y creación de la notificación de cierre. El plan temporal se eliminó al terminar.
+
+El equipo confirmó además registro desde Safari en iPhone con Wi-Fi desactivado y recepción del correo, apertura de la publicación en Expo Go sin Metro, y guardado y recuperación de la ubicación después de cerrar sesión y volver a entrar. La cámara y el QR se probaron previamente en el iPhone contra el entorno local; los permisos denegados y la revisión visual de todas las pantallas nativas requieren una comprobación separada.
+
+| Endpoint de la API | Media de 10 lecturas |
+|---|---:|
+| `/api/v1/users/me` | 111 ms |
+| `/api/v1/plans?page=0&size=10` | 140 ms |
+| `/api/v1/notifications/page?page=0&size=10` | 202 ms |
+
+Las mediciones fueron secuenciales, después de una lectura de calentamiento, desde la computadora de desarrollo. No constituyen una prueba de carga ni certifican disponibilidad continua. La disponibilidad durante la evaluación debe comprobarse por separado.
 
 ### Crédito y desconexión de Render
 
@@ -266,7 +290,7 @@ Render es el despliegue anterior. Retirar `render.yaml` no desconecta sus servic
 
 **Aprendizajes clave.** Separar responsabilidades, proteger recursos por membresía y coordinar eventos requiere validar también las integraciones externas.
 
-**Trabajo futuro.** Antes de conectar el frontend a AWS, configura `CORS_ALLOWED_ORIGINS` con su origen HTTPS y comprueba el flujo completo con dos usuarios. Quedan como mejoras observabilidad, reintentos y respaldos duraderos.
+**Cierre pendiente.** Completar la revisión visual de todas las pantallas nativas y los permisos denegados, la disponibilidad durante la evaluación, los aportes reales del equipo y el ensayo de exposición. Quedan como mejoras la observabilidad y los respaldos duraderos.
 
 ## 11. Apéndices
 
