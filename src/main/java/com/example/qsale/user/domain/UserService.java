@@ -2,6 +2,7 @@ package com.example.qsale.user.domain;
 
 import com.example.qsale.exceptions.ResourceNotFoundException;
 import com.example.qsale.exceptions.UnauthorizedException;
+import com.example.qsale.exceptions.InvalidOperationException;
 import com.example.qsale.location.domain.Location;
 import com.example.qsale.option.events.TravelEstimateRefreshRequestedEvent;
 import com.example.qsale.participant.domain.ParticipationStatus;
@@ -70,12 +71,17 @@ public class UserService implements UserDetailsService {
     @Transactional
     public UserResponseDto updateMe(UserUpdateDto dto) {
         User user = getCurrentUser();
+        if (dto.isRemoveLocation() && dto.getLocation() != null) {
+            throw new InvalidOperationException("Cannot set and remove a location in the same request");
+        }
         user.setName(dto.getName());
-        boolean coordinatesChanged = dto.getLocation() != null &&
+        boolean coordinatesChanged = (dto.isRemoveLocation() && user.getLocation() != null) || dto.getLocation() != null &&
                 (user.getLocation() == null ||
                         !Objects.equals(user.getLocation().getLatitude(), dto.getLocation().getLatitude()) ||
                         !Objects.equals(user.getLocation().getLongitude(), dto.getLocation().getLongitude()));
-        if (dto.getLocation() != null) {
+        if (dto.isRemoveLocation()) {
+            user.setLocation(null);
+        } else if (dto.getLocation() != null) {
             user.setLocation(modelMapper.map(dto.getLocation(), Location.class));
         }
         UserResponseDto response = modelMapper.map(userRepository.save(user), UserResponseDto.class);
@@ -101,7 +107,11 @@ public class UserService implements UserDetailsService {
     @PreAuthorize("hasAuthority('ADMIN')")
     @Transactional
     public UserResponseDto updateRole(Long userId, RoleUpdateDto dto) {
+        List<User> administrators = userRepository.findAdministratorsForUpdate();
         User user = getUserById(userId);
+        if (user.isAdmin() && dto.getRole() == Role.USER && administrators.size() <= 1) {
+            throw new InvalidOperationException("The last administrator cannot be demoted");
+        }
         user.setRole(dto.getRole());
         return modelMapper.map(userRepository.save(user), UserResponseDto.class);
     }

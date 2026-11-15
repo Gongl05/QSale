@@ -126,7 +126,11 @@ export default function Plans() {
           <h2>Mis planes</h2>
           <p>De “¿cuándo nos vemos?” a “ahí nos vemos”.</p>
         </div>
-        <span>{query.data ? query.data.totalElements + ' planes' : ''}</span>
+        <span>
+          {query.data
+            ? query.data.totalElements + (query.data.totalElements === 1 ? ' plan' : ' planes')
+            : ''}
+        </span>
       </section>
       <div className="filters">
         <div className="search-field">

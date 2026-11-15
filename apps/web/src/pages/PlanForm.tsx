@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -33,7 +33,7 @@ export default function PlanForm() {
     handleSubmit,
     reset,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm<PlanInput>({
     resolver: zodResolver(planSchema),
     defaultValues: {
@@ -46,8 +46,20 @@ export default function PlanForm() {
       tentativeEndDate: null,
     },
   });
+  const loadedPlan = useRef<number | null>(null);
+  const dirty = useRef(dirtyFields);
+  dirty.current = dirtyFields;
   useEffect(() => {
-    if (query.data) reset({ ...query.data, description: query.data.description ?? '' });
+    if (query.data) {
+      reset(
+        { ...query.data, description: query.data.description ?? '' },
+        {
+          keepDirtyValues:
+            loadedPlan.current === query.data.id && Object.keys(dirty.current).length > 0,
+        },
+      );
+      loadedPlan.current = query.data.id;
+    }
   }, [query.data, reset]);
   if (editing && query.isPending) return <Loading />;
   if (editing && query.isError)

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -45,7 +45,7 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
     handleSubmit,
     reset,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm<PlanInput>({
     resolver: zodResolver(planSchema),
     defaultValues: {
@@ -58,9 +58,21 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
       tentativeEndDate: null,
     },
   });
+  const loadedPlan = useRef<number | null>(null);
+  const dirty = useRef(dirtyFields);
+  dirty.current = dirtyFields;
   useEffect(() => {
-    if (query.data) reset({ ...query.data, description: query.data.description ?? '' });
-  }, [query.data]);
+    if (query.data) {
+      reset(
+        { ...query.data, description: query.data.description ?? '' },
+        {
+          keepDirtyValues:
+            loadedPlan.current === query.data.id && Object.keys(dirty.current).length > 0,
+        },
+      );
+      loadedPlan.current = query.data.id;
+    }
+  }, [query.data, reset]);
   if (editing && query.isPending) return <Loading />;
   if (editing && query.isError)
     return (

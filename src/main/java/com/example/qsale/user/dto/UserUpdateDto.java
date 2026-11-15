@@ -19,4 +19,6 @@ public class UserUpdateDto {
 
     @Valid
     private LocationDto location;
+
+    private boolean removeLocation;
 }

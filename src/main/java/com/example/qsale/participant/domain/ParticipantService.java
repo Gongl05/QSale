@@ -78,12 +78,12 @@ public class ParticipantService {
     }
 
     private ParticipantResponseDto join(Plan plan, User user) {
-        planAccessService.requireOpen(plan);
         PlanParticipant participant = participantRepository.findByPlanIdAndUserId(plan.getId(), user.getId())
                 .orElseGet(() -> new PlanParticipant(plan, user, ParticipantRole.GUEST));
         if (participant.getStatus() == ParticipationStatus.JOINED) {
-            throw new DuplicateResourceException("You already joined plan " + plan.getId());
+            return toResponse(participant);
         }
+        planAccessService.requireOpen(plan);
         participant.setStatus(ParticipationStatus.JOINED);
         participant.setJoinedAt(LocalDateTime.now());
         participantRepository.save(participant);

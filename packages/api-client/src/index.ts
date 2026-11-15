@@ -66,13 +66,32 @@ export function toApiError(error: unknown): ApiError {
   );
 }
 
+export const isCanceledRequest = axios.isCancel;
+async function contextual<T>(request: Promise<T>, messages: Record<number, string>) {
+  try {
+    return await request;
+  } catch (error) {
+    if (axios.isCancel(error)) throw error;
+    const normalized = toApiError(error);
+    throw new ApiError(
+      messages[normalized.status] ?? normalized.message,
+      normalized.status,
+      normalized.fieldErrors,
+    );
+  }
+}
+
 interface SessionAdapter {
   baseURL: string;
   getAccessToken: () => string | null | Promise<string | null>;
+  getSessionGeneration?: () => number;
   refresh: () => Promise<string>;
   onSessionExpired: () => void;
 }
-type RetriedRequest = InternalAxiosRequestConfig & { sessionRetried?: boolean };
+type RetriedRequest = InternalAxiosRequestConfig & {
+  sessionRetried?: boolean;
+  sessionGeneration?: number;
+};
 
 export function createApiClient(adapter: SessionAdapter) {
   const client = axios.create({
@@ -81,27 +100,52 @@ export function createApiClient(adapter: SessionAdapter) {
     headers: { 'Content-Type': 'application/json' },
   });
   let refreshInFlight: Promise<string> | null = null;
+  let refreshGeneration: number | undefined;
+  const requireCurrentSession = (config?: RetriedRequest) => {
+    if (
+      config?.sessionGeneration !== undefined &&
+      config.sessionGeneration !== adapter.getSessionGeneration?.()
+    )
+      throw new axios.CanceledError('La sesión cambió.');
+  };
   client.interceptors.request.use(async (config) => {
+    const request = config as RetriedRequest;
+    request.sessionGeneration ??= adapter.getSessionGeneration?.();
+    requireCurrentSession(request);
     const token = await adapter.getAccessToken();
+    requireCurrentSession(request);
     if (token) config.headers.set('Authorization', 'Bearer ' + token);
     return config;
   });
   client.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      requireCurrentSession(response.config as RetriedRequest);
+      return response;
+    },
     async (error: AxiosError) => {
       if (axios.isCancel(error)) throw error;
       const config = error.config as RetriedRequest | undefined;
+      requireCurrentSession(config);
       if (error.response?.status === 401 && config && !config.sessionRetried) {
         if (config.signal?.aborted) throw new axios.CanceledError();
         config.sessionRetried = true;
         try {
           const current = await adapter.getAccessToken();
           const outdated = current && config.headers.get('Authorization') !== 'Bearer ' + current;
-          if (!outdated)
-            refreshInFlight ??= adapter.refresh().finally(() => {
+          if (!outdated) {
+            if (refreshGeneration !== config.sessionGeneration) {
               refreshInFlight = null;
-            });
+              refreshGeneration = config.sessionGeneration;
+            }
+            if (!refreshInFlight) {
+              const request = adapter.refresh().finally(() => {
+                if (refreshInFlight === request) refreshInFlight = null;
+              });
+              refreshInFlight = request;
+            }
+          }
           const token = outdated ? current : await refreshInFlight!;
+          requireCurrentSession(config);
           if (config.signal?.aborted) throw new axios.CanceledError();
           config.headers.set('Authorization', 'Bearer ' + token);
           return client.request(config);
@@ -129,7 +173,8 @@ export function createQSaleApi(http: AxiosInstance) {
   ) => (await http.request<T>({ method, url, data })).data;
   return {
     me: (signal?: AbortSignal) => read<User>('/users/me', undefined, signal),
-    updateMe: (data: { name: string; location?: Location }) => send<User>('put', '/users/me', data),
+    updateMe: (data: { name: string; location?: Location; removeLocation?: boolean }) =>
+      send<User>('put', '/users/me', data),
     plans: (params: PlanFilters, signal?: AbortSignal) =>
       read<Page<Plan>>('/plans', params, signal),
     plan: (id: number, signal?: AbortSignal) => read<PlanDetail>('/plans/' + id, undefined, signal),
@@ -141,10 +186,19 @@ export function createQSaleApi(http: AxiosInstance) {
     participants: (id: number, signal?: AbortSignal) =>
       read<Participant[]>(`/plans/${id}/participants`, undefined, signal),
     invite: (id: number, email: string) =>
-      send<Participant>('post', `/plans/${id}/participants`, { email }),
+      contextual(send<Participant>('post', `/plans/${id}/participants`, { email }), {
+        404: 'Ese correo aún no tiene cuenta en QSale. Comparte el enlace o código del plan para que se registre y se una.',
+        409: 'Esa persona ya pertenece al grupo o tiene una invitación pendiente. Revisa El grupo.',
+      }),
     acceptInvitation: (id: number) => send<Participant>('patch', `/plans/${id}/participants/me`),
     join: (code: string) =>
-      send<Participant>('post', '/plans/join/' + encodeURIComponent(code.trim().toUpperCase())),
+      contextual(
+        send<Participant>('post', '/plans/join/' + encodeURIComponent(code.trim().toUpperCase())),
+        {
+          404: 'No encontramos un plan con ese código. Pide una invitación vigente a quien organiza.',
+          400: 'Este plan ya no acepta participantes. Pide otra invitación a quien organiza.',
+        },
+      ),
     removeParticipant: (planId: number, userId: number) =>
       send<void>('delete', `/plans/${planId}/participants/${userId}`),
     options: (id: number, signal?: AbortSignal) =>
@@ -176,7 +230,9 @@ export function createQSaleApi(http: AxiosInstance) {
     markRead: (id: number) => send<Notification>('patch', `/notifications/${id}/read`),
     users: (signal?: AbortSignal) => read<User[]>('/admin/users', undefined, signal),
     updateRole: (id: number, role: User['role']) =>
-      send<User>('patch', `/admin/users/${id}/role`, { role }),
+      contextual(send<User>('patch', `/admin/users/${id}/role`, { role }), {
+        400: 'QSale debe conservar al menos un administrador. Asigna ese acceso a otra persona antes de retirarlo.',
+      }),
   };
 }
 

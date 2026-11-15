@@ -12,6 +12,42 @@ function unauthorized(config: InternalAxiosRequestConfig) {
   });
 }
 describe('JWT renewal', () => {
+  it.each([200, 401])('discards a late %s response after changing accounts', async (status) => {
+    let token = 'account-a',
+      generation = 1;
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const refresh = vi.fn(async () => token);
+    const expired = vi.fn();
+    const adapter = {
+      baseURL: 'https://api.test',
+      getAccessToken: () => token,
+      getSessionGeneration: () => generation,
+      refresh,
+      onSessionExpired: expired,
+    };
+    const client = createApiClient(adapter);
+    const requests: string[] = [];
+    client.defaults.adapter = async (config) => {
+      requests.push(String(config.headers.get('Authorization')));
+      if (requests.length === 1) {
+        await barrier;
+        if (status === 401) throw unauthorized(config);
+      }
+      return { status: 200, statusText: 'OK', config, headers: {}, data: 'private account-a data' };
+    };
+    const result = client.post('/plans', { name: 'A private plan' }).catch((error) => error);
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    generation++;
+    token = 'account-b';
+    release();
+    expect(axios.isCancel(await result)).toBe(true);
+    expect(requests).toEqual(['Bearer account-a']);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(expired).not.toHaveBeenCalled();
+  });
   it('renews once for concurrent 401s and retries a late old-token response with the new token', async () => {
     let token = 'old';
     let release!: () => void;

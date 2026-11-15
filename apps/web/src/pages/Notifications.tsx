@@ -26,7 +26,7 @@ export default function Notifications() {
         title="Lo último de tu grupo"
         description={
           query.data
-            ? `${query.data.unreadCount} notificaciones sin leer`
+            ? `${query.data.unreadCount} ${query.data.unreadCount === 1 ? 'notificación' : 'notificaciones'} sin leer`
             : 'Invitaciones, cambios y planes que ya salieron.'
         }
       />

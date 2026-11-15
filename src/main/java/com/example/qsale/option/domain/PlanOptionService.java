@@ -77,6 +77,16 @@ public class PlanOptionService {
     }
 
     @Transactional
+    public void markTravelEstimatesPending(Long planId) {
+        optionRepository.findByPlanIdAndType(planId, OptionType.PLACE).forEach(option -> {
+            option.setEstimateStatus(TravelEstimateStatus.PENDING);
+            option.setAvgDistanceKm(null);
+            option.setAvgTravelMinutes(null);
+            option.setEstimateSource(null);
+        });
+    }
+
+    @Transactional
     public void updatePlanTravelEstimates(Long planId) {
         List<PlanOption> options = optionRepository.findByPlanIdAndType(planId, OptionType.PLACE);
         if (options.isEmpty()) {

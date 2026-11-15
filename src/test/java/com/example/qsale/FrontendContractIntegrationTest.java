@@ -5,6 +5,9 @@ import com.example.qsale.notification.domain.Notification;
 import com.example.qsale.notification.domain.NotificationType;
 import com.example.qsale.notification.infrastructure.NotificationRepository;
 import com.example.qsale.user.infrastructure.UserRepository;
+import com.example.qsale.location.domain.GeoService;
+import com.example.qsale.location.domain.TravelEstimateSource;
+import com.example.qsale.location.dto.TravelEstimateDto;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,16 +16,19 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -33,6 +39,7 @@ class FrontendContractIntegrationTest extends AbstractContainerBaseTest {
     @Autowired private UserRepository users;
     @Autowired private NotificationRepository notifications;
     @MockitoBean private EmailService emailService;
+    @MockitoSpyBean private GeoService geoService;
 
     @BeforeEach
     void preventExternalMail() {
@@ -175,6 +182,35 @@ class FrontendContractIntegrationTest extends AbstractContainerBaseTest {
             Thread.sleep(25);
         } while (System.nanoTime() < deadline);
         throw new AssertionError("Estimate did not reach " + status);
+    }
+
+    @Test
+    void invalidatesTheOldEstimateWhileNewCoordinatesAreBeingCalculated() throws Exception {
+        Account owner = account();
+        long plan = plan(owner, "Pending travel refresh");
+        mvc.perform(auth(put("/api/v1/users/me"), owner).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Member\",\"location\":{\"latitude\":-12.12,\"longitude\":-77.03}}"))
+                .andExpect(status().isOk());
+        mvc.perform(auth(post("/api/v1/plans/{id}/options", plan), owner).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"type\":\"PLACE\",\"label\":\"Meeting point\",\"location\":{\"latitude\":-12.1,\"longitude\":-77.0}}"))
+                .andExpect(status().isCreated());
+        awaitEstimate(plan, owner, "READY");
+        CountDownLatch started = new CountDownLatch(1), release = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            started.countDown();
+            if (!release.await(10, TimeUnit.SECONDS)) throw new AssertionError("Refresh not released");
+            return new TravelEstimateDto(7.5, 20, TravelEstimateSource.HAVERSINE);
+        }).when(geoService).estimateAverageTravel(anyList(), any());
+        try {
+            mvc.perform(auth(put("/api/v1/users/me"), owner).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Member\",\"location\":{\"latitude\":-12.2,\"longitude\":-77.1}}"))
+                    .andExpect(status().isOk());
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            mvc.perform(auth(get("/api/v1/plans/{id}/options", plan), owner)).andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].estimateStatus").value("PENDING"))
+                    .andExpect(jsonPath("$[0].avgDistanceKm").isEmpty());
+        } finally { release.countDown(); }
+        assertEquals(7.5, ((Number)JsonPath.read(awaitEstimate(plan, owner, "READY"), "$[0].avgDistanceKm")).doubleValue());
     }
 
     private Account account() throws Exception {

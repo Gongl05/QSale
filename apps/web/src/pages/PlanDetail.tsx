@@ -449,12 +449,7 @@ export default function PlanDetail() {
     'Voto actualizado.',
   );
   const respond = useAction(
-    (status: CommitmentStatus) =>
-      api.respond(
-        planId,
-        status,
-        note ?? commitments.data?.find((item) => item.userId === user!.id)?.note ?? undefined,
-      ),
+    (status: CommitmentStatus) => api.respond(planId, status, note ?? undefined),
     'Tu respuesta está guardada.',
     () => setNote(null),
   );
@@ -742,7 +737,8 @@ export default function PlanDetail() {
                 <h2>Un punto para encontrarse</h2>
                 <p>
                   El punto medio usa las ubicaciones de referencia del grupo. Es una orientación
-                  geográfica; no calcula una ruta de encuentro.
+                  geográfica; no calcula una ruta de encuentro. Aparece cuando al menos dos
+                  integrantes guardan una ubicación.
                 </p>
                 <DataSection query={geography}>
                   {(geo) => (

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from './ui';
+import { ApiError, isCanceledRequest } from '@qsale/api-client';
 
 export function useDebounced<T>(value: T, delay = 350) {
   const [debounced, setDebounced] = useState(value);
@@ -52,7 +53,12 @@ export function useAction<T>(
       toast(message);
       after?.();
     },
-    onError: (error: Error) => toast(error.message, true),
+    onError: (error: Error) => {
+      if (isCanceledRequest(error)) return;
+      if (error instanceof ApiError && [403, 404, 409].includes(error.status))
+        void client.invalidateQueries();
+      toast(error.message, true);
+    },
   });
 }
 export function useOnline() {

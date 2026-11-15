@@ -1,14 +1,34 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { locationSchema, type Location, type OptionInput } from '@qsale/contracts';
+import { useQuery } from '@tanstack/react-query';
+import { ApiError } from '@qsale/api-client';
+import { canContribute, locationSchema, type Location, type OptionInput } from '@qsale/contracts';
 import { DateField } from '../../../../src/DateField';
 import { api } from '../../../../src/session';
 import { LocationPicker } from '../../../../src/Map';
-import { Button, Field, Heading, Screen, Tabs, Text, styles, useAction } from '../../../../src/ui';
+import {
+  Button,
+  ErrorState,
+  Field,
+  Heading,
+  Loading,
+  Screen,
+  Tabs,
+  Text,
+  styles,
+  useAction,
+} from '../../../../src/ui';
 export default function Proposal() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const planId = Number(id);
+  const valid = Number.isSafeInteger(planId) && planId > 0;
+  const query = useQuery({
+    queryKey: ['plan', planId],
+    queryFn: ({ signal }) => api.plan(planId, signal),
+    enabled: valid,
+  });
   const [type, setType] = useState<'DATE' | 'PLACE'>('DATE'),
     [label, setLabel] = useState(''),
     [description, setDescription] = useState(''),
@@ -21,8 +41,39 @@ export default function Proposal() {
   const action = useAction(
     (input: OptionInput) => api.createOption(Number(id), input),
     'Propuesta lista para recibir votos.',
-    () => router.back(),
+    () => router.replace(('/plans/' + planId) as '/plans/[id]'),
   );
+  if (!valid)
+    return (
+      <Screen>
+        <ErrorState error={new ApiError('El enlace del plan no es válido.', 404)} />
+      </Screen>
+    );
+  if (query.isPending) return <Loading />;
+  if (query.isError)
+    return (
+      <Screen>
+        <ErrorState error={query.error} retry={() => void query.refetch()} />
+      </Screen>
+    );
+  if (!canContribute(query.data))
+    return (
+      <Screen>
+        <ErrorState
+          error={
+            new ApiError(
+              query.data.status !== 'OPEN'
+                ? 'El plan ya está cerrado o cancelado. Puedes consultar sus propuestas.'
+                : 'Primero acepta la invitación para proponer.',
+              403,
+            )
+          }
+        />
+        <Button onPress={() => router.replace(('/plans/' + planId) as '/plans/[id]')}>
+          Ver plan
+        </Button>
+      </Screen>
+    );
   return (
     <Screen>
       <Heading

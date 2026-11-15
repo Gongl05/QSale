@@ -42,7 +42,7 @@ export default function Profile() {
           try {
             const updated = await api.updateMe({
               name: name.trim(),
-              ...(location ? { location } : {}),
+              ...(location ? { location } : { removeLocation: true }),
             });
             updateUser(updated);
             await cache.invalidateQueries();

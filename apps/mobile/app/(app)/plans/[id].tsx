@@ -176,12 +176,7 @@ export default function PlanDetail() {
     () => setEmail(''),
   );
   const respond = useAction(
-    (status: CommitmentStatus) =>
-      api.respond(
-        planId,
-        status,
-        note ?? commitments.data?.find((item) => item.userId === user!.id)?.note ?? undefined,
-      ),
+    (status: CommitmentStatus) => api.respond(planId, status, note ?? undefined),
     'Tu respuesta está guardada.',
     () => setNote(null),
   );
@@ -351,7 +346,9 @@ export default function PlanDetail() {
               onChangeText={setNote}
               hint="Se guarda al elegir tu respuesta."
             />
-            {Boolean(mine?.note) && <Text style={styles.muted}>Tu nota guardada: {mine?.note}</Text>}
+            {Boolean(mine?.note) && (
+              <Text style={styles.muted}>Tu nota guardada: {mine?.note}</Text>
+            )}
           </>
         ) : (
           <Text style={styles.subtitle}>
@@ -606,7 +603,7 @@ export default function PlanDetail() {
         <>
           <Heading
             title="Un punto para encontrarse"
-            description="El punto medio usa ubicaciones de referencia. Orienta geográficamente; no calcula una ruta de encuentro."
+            description="El punto medio aparece con las ubicaciones de al menos dos integrantes. Orienta geográficamente; no calcula una ruta de encuentro."
           />
           <Section query={geography}>
             {(geo) => (

@@ -219,7 +219,11 @@ export function parseNumberDraft(value: string, optional = false): number | null
   return Number.isFinite(number) ? number : Number.NaN;
 }
 
-const email = z.email('Escribe un correo válido.').max(150, 'El correo es demasiado largo.');
+const email = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email('Escribe un correo válido.').max(150, 'El correo es demasiado largo.'));
 export const signInSchema = z.object({
   email,
   password: z.string().min(1, 'Escribe tu contraseña.'),

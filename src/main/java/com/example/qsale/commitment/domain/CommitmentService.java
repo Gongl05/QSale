@@ -41,7 +41,7 @@ public class CommitmentService {
         CommitmentResponse commitment = commitmentRepository.findByPlanIdAndUserId(planId, user.getId())
                 .orElseGet(() -> new CommitmentResponse(plan, user, dto.getStatus()));
         commitment.setStatus(dto.getStatus());
-        commitment.setNote(dto.getNote());
+        if (dto.getNote() != null) commitment.setNote(dto.getNote());
         commitment.setRespondedAt(LocalDateTime.now());
         commitmentRepository.save(commitment);
         eventPublisher.publishEvent(new PlanChangedEvent(this, plan.getId()));

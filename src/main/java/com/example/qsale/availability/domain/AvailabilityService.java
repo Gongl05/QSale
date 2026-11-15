@@ -74,6 +74,9 @@ public class AvailabilityService {
     }
 
     private void validateTimes(AvailabilityRequestDto dto) {
+        if ((dto.getStartTime() == null) != (dto.getEndTime() == null)) {
+            throw new InvalidOperationException("Both startTime and endTime are required, or neither");
+        }
         if (dto.getStartTime() != null && dto.getEndTime() != null && !dto.getEndTime().isAfter(dto.getStartTime())) {
             throw new InvalidOperationException("endTime must be after startTime");
         }

@@ -169,6 +169,20 @@ export function LocationPicker({
         </Text>
       )}
       <MapView points={[]} value={value} onChange={select} />
+      {value && (
+        <Button
+          variant="quiet"
+          onPress={() => {
+            setLatitude('');
+            setLongitude('');
+            setAddress('');
+            onChange(null);
+            onValidityChange?.(true);
+          }}
+        >
+          Quitar ubicación
+        </Button>
+      )}
       <Field
         label="Latitud"
         keyboardType="numbers-and-punctuation"

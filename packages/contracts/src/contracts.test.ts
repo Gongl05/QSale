@@ -1,5 +1,17 @@
 import { expect, it } from 'vitest';
-import { safeReturnPath, signUpSchema, planSchema, utf8Length, parseNumberDraft } from './index';
+import {
+  safeReturnPath,
+  signUpSchema,
+  signInSchema,
+  planSchema,
+  utf8Length,
+  parseNumberDraft,
+} from './index';
+it('normalizes a pasted email without changing the password', () => {
+  expect(
+    signInSchema.parse({ email: '  ANA@Example.com ', password: ' Keep my password ' }),
+  ).toEqual({ email: 'ana@example.com', password: ' Keep my password ' });
+});
 it('rejects external return URLs while preserving private invitation links', () => {
   expect(safeReturnPath('https://evil.test')).toBe('/plans');
   expect(safeReturnPath('//evil.test')).toBe('/plans');

@@ -4,10 +4,10 @@ import { ApiError } from '@qsale/api-client';
 import type { User } from '@qsale/contracts';
 import { api, useSession } from '../session';
 import { useAction } from '../hooks';
-import { Button, ConfirmDialog, ErrorState, Field, PageHeading, Skeleton } from '../ui';
+import { Button, ConfirmDialog, EmptyState, ErrorState, Field, PageHeading, Skeleton } from '../ui';
 
 export default function Admin() {
-  const { user } = useSession();
+  const { user, updateUser } = useSession();
   const [search, setSearch] = useState('');
   const [target, setTarget] = useState<User | null>(null);
   const query = useQuery({
@@ -16,10 +16,17 @@ export default function Admin() {
     enabled: user?.role === 'ADMIN',
   });
   const change = useAction(
-    (target: User) => api.updateRole(target.id, target.role === 'ADMIN' ? 'USER' : 'ADMIN'),
+    async (target: User) => {
+      await api.updateRole(target.id, target.role === 'ADMIN' ? 'USER' : 'ADMIN');
+      if (target.id === user?.id) updateUser(await api.me());
+    },
     'Rol actualizado.',
     () => setTarget(null),
   );
+  const filteredUsers =
+    query.data?.filter((item) =>
+      (item.name + ' ' + item.email).toLowerCase().includes(search.trim().toLowerCase()),
+    ) ?? [];
   if (user?.role !== 'ADMIN')
     return (
       <ErrorState error={new ApiError('Solo los administradores pueden ver esta pantalla.', 403)} />
@@ -28,7 +35,7 @@ export default function Admin() {
     <>
       <PageHeading
         title="Administración"
-        description="Gestiona los accesos con cuidado: un administrador puede gestionar todos los planes."
+        description="Gestiona los accesos con cuidado. QSale debe conservar al menos un administrador."
       />
       <Field
         label="Buscar usuario por nombre o correo"
@@ -52,24 +59,40 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody>
-              {query.data
-                .filter((item) =>
-                  (item.name + ' ' + item.email).toLowerCase().includes(search.toLowerCase()),
-                )
-                .map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.name}</td>
-                    <td>{item.email}</td>
-                    <td>{item.role === 'ADMIN' ? 'Administrador' : 'Usuario'}</td>
-                    <td>
-                      <Button variant="secondary" onClick={() => setTarget(item)}>
-                        {item.role === 'ADMIN' ? 'Cambiar a usuario' : 'Hacer administrador'}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+              {filteredUsers.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.name}</td>
+                  <td>{item.email}</td>
+                  <td>{item.role === 'ADMIN' ? 'Administrador' : 'Usuario'}</td>
+                  <td>
+                    <Button
+                      variant="secondary"
+                      disabled={
+                        change.isPending ||
+                        (item.role === 'ADMIN' &&
+                          query.data.filter((user) => user.role === 'ADMIN').length === 1)
+                      }
+                      onClick={() => setTarget(item)}
+                    >
+                      {item.role === 'ADMIN' ? 'Cambiar a usuario' : 'Hacer administrador'}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
+          {!filteredUsers.length && (
+            <EmptyState
+              title="No encontramos usuarios con esa búsqueda"
+              action={
+                <Button variant="secondary" onClick={() => setSearch('')}>
+                  Limpiar búsqueda
+                </Button>
+              }
+            >
+              Prueba con otro nombre o correo.
+            </EmptyState>
+          )}
         </div>
       )}
       {target && (

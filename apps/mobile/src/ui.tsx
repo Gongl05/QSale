@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Feather from '@expo/vector-icons/Feather';
 import { useNetInfo } from '@react-native-community/netinfo';
+import { ApiError, isCanceledRequest } from '@qsale/api-client';
 
 export const colors = {
   ink: '#1E293B',
@@ -532,7 +533,12 @@ export function useAction<T>(
       toast(message);
       after?.();
     },
-    onError: (error: Error) => toast(error.message, true),
+    onError: (error: Error) => {
+      if (isCanceledRequest(error)) return;
+      if (error instanceof ApiError && [403, 404, 409].includes(error.status))
+        void cache.invalidateQueries();
+      toast(error.message, true);
+    },
   });
 }
 export function confirmAction(

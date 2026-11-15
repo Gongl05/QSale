@@ -159,6 +159,21 @@ export function LocationPicker({
         </Button>
       </div>
       <MapView points={[]} initial={value} onSelect={select} />
+      {value && (
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            setLatitude('');
+            setLongitude('');
+            setAddress('');
+            onChange(null);
+            onValidityChange?.(true);
+          }}
+        >
+          Quitar ubicación
+        </Button>
+      )}
       <div className="form-row">
         <Field
           label="Latitud"

@@ -24,4 +24,9 @@ public class PlaceOptionListener {
     public void refreshPlanTravelEstimates(TravelEstimateRefreshRequestedEvent event) {
         planOptionService.updatePlanTravelEstimates(event.getPlanId());
     }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void markTravelEstimatesPending(TravelEstimateRefreshRequestedEvent event) {
+        planOptionService.markTravelEstimatesPending(event.getPlanId());
+    }
 }

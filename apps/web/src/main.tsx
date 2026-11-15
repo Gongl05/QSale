@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import '@fontsource-variable/manrope';
 import './styles.css';
 import { api, queryClient, SessionProvider, useSession } from './session';
-import { ErrorBoundary, ErrorState, Loading, ToastProvider, useToast } from './ui';
+import { Button, ErrorBoundary, ErrorState, Loading, ToastProvider, useToast } from './ui';
 import { useOnline } from './hooks';
 
 function Protected() {
@@ -237,29 +237,45 @@ function AppShell() {
 const lazyPage = (module: () => Promise<{ default: React.ComponentType }>) => async () => ({
   Component: (await module()).default,
 });
+function RouteFailure() {
+  return (
+    <main className="standalone">
+      <h1>No pudimos abrir esta pantalla</h1>
+      <p>Revisa tu conexión y vuelve a cargar. Tus datos guardados siguen en tu cuenta.</p>
+      <Button onClick={() => location.reload()}>Volver a cargar</Button>
+      <a href="/plans">Ir a mis planes</a>
+    </main>
+  );
+}
 const router = createBrowserRouter([
-  { path: '/login', lazy: lazyPage(() => import('./pages/Auth')) },
-  { path: '/register', lazy: lazyPage(() => import('./pages/Auth')) },
   {
-    element: <Protected />,
+    errorElement: <RouteFailure />,
+    hydrateFallbackElement: <Loading label="Abriendo QSale…" />,
     children: [
+      { path: '/login', lazy: lazyPage(() => import('./pages/Auth')) },
+      { path: '/register', lazy: lazyPage(() => import('./pages/Auth')) },
       {
-        element: <AppShell />,
+        element: <Protected />,
         children: [
-          { path: '/plans', lazy: lazyPage(() => import('./pages/Plans')) },
-          { path: '/plans/new', lazy: lazyPage(() => import('./pages/PlanForm')) },
-          { path: '/plans/:id', lazy: lazyPage(() => import('./pages/PlanDetail')) },
-          { path: '/plans/:id/edit', lazy: lazyPage(() => import('./pages/PlanForm')) },
-          { path: '/join/:code?', lazy: lazyPage(() => import('./pages/Join')) },
-          { path: '/notifications', lazy: lazyPage(() => import('./pages/Notifications')) },
-          { path: '/profile', lazy: lazyPage(() => import('./pages/Profile')) },
-          { path: '/admin', lazy: lazyPage(() => import('./pages/Admin')) },
+          {
+            element: <AppShell />,
+            children: [
+              { path: '/plans', lazy: lazyPage(() => import('./pages/Plans')) },
+              { path: '/plans/new', lazy: lazyPage(() => import('./pages/PlanForm')) },
+              { path: '/plans/:id', lazy: lazyPage(() => import('./pages/PlanDetail')) },
+              { path: '/plans/:id/edit', lazy: lazyPage(() => import('./pages/PlanForm')) },
+              { path: '/join/:code?', lazy: lazyPage(() => import('./pages/Join')) },
+              { path: '/notifications', lazy: lazyPage(() => import('./pages/Notifications')) },
+              { path: '/profile', lazy: lazyPage(() => import('./pages/Profile')) },
+              { path: '/admin', lazy: lazyPage(() => import('./pages/Admin')) },
+            ],
+          },
         ],
       },
+      { path: '/', element: <Navigate to="/plans" replace /> },
+      { path: '*', lazy: lazyPage(() => import('./pages/NotFound')) },
     ],
   },
-  { path: '/', element: <Navigate to="/plans" replace /> },
-  { path: '*', lazy: lazyPage(() => import('./pages/NotFound')) },
 ]);
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

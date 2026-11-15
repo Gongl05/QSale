@@ -12,6 +12,16 @@ import type { SignInInput, SignUpInput, User } from '@qsale/contracts';
 
 let accessToken: string | null = null;
 let refreshRequest: Promise<string> | null = null;
+let generation = 0;
+let sessionController = new AbortController();
+function changeSession() {
+  generation++;
+  sessionController.abort();
+  sessionController = new AbortController();
+  refreshRequest = null;
+  accessToken = null;
+  return generation;
+}
 const sessionHTTP = axios.create({ baseURL: '/session', timeout: 12_000 });
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,25 +31,31 @@ export const queryClient = new QueryClient({
 });
 let expireSession = () => {};
 async function refresh() {
-  refreshRequest ??= sessionHTTP
-    .post<{ token: string }>('/refresh')
+  if (refreshRequest) return refreshRequest;
+  const started = generation;
+  const request = sessionHTTP
+    .post<{ token: string }>('/refresh', undefined, { signal: sessionController.signal })
     .then(({ data }) => {
+      if (started !== generation) throw new axios.CanceledError('La sesión cambió.');
       accessToken = data.token;
       return data.token;
     })
     .catch((error) => {
-      accessToken = null;
+      if (axios.isCancel(error)) throw error;
+      if (started === generation) accessToken = null;
       throw toApiError(error);
     })
     .finally(() => {
-      refreshRequest = null;
+      if (refreshRequest === request) refreshRequest = null;
     });
-  return refreshRequest;
+  refreshRequest = request;
+  return request;
 }
 export const api = createQSaleApi(
   createApiClient({
     baseURL: '/backend/api/v1',
     getAccessToken: () => accessToken,
+    getSessionGeneration: () => generation,
     refresh,
     onSessionExpired: () => expireSession(),
   }),
@@ -66,7 +82,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     expireSession = () => {
-      accessToken = null;
+      changeSession();
       setUser(null);
       queryClient.clear();
     };
@@ -78,6 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (active) setUser(value);
       })
       .catch((error) => {
+        if (axios.isCancel(error)) return;
         if (active && !(error instanceof ApiError && [400, 401, 403].includes(error.status)))
           setError(error);
       })
@@ -89,12 +106,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, [attempt]);
   async function authenticate(action: 'signin' | 'signup', input: SignInInput | SignUpInput) {
+    const started = changeSession();
     try {
-      const { data } = await sessionHTTP.post<{ token: string }>('/' + action, input);
+      const { data } = await sessionHTTP.post<{ token: string }>('/' + action, input, {
+        signal: sessionController.signal,
+      });
+      if (started !== generation) throw new axios.CanceledError('La sesión cambió.');
       accessToken = data.token;
       queryClient.clear();
-      setUser(await api.me());
+      const profile = await api.me();
+      if (started === generation) setUser(profile);
     } catch (error) {
+      if (axios.isCancel(error)) throw error;
       const normalized = toApiError(error);
       if (action === 'signin' && normalized.status === 401)
         throw new ApiError('El correo o la contraseña no coinciden.', 401);
@@ -114,11 +137,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         signUp: (input) => authenticate('signup', input),
         updateUser: setUser,
         signOut: async () => {
+          const previousToken = accessToken;
+          const started = changeSession();
           try {
-            await sessionHTTP.post('/logout');
+            await sessionHTTP.post('/logout', undefined, { signal: sessionController.signal });
           } catch (error) {
+            if (started === generation) accessToken = previousToken;
+            if (axios.isCancel(error)) throw error;
             throw toApiError(error);
           }
+          if (started !== generation) return;
           accessToken = null;
           setUser(null);
           queryClient.clear();
