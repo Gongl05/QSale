@@ -71,7 +71,7 @@ export default function JoinScreen() {
             action.mutate(parsed, {
               onSuccess: (result) => {
                 const participant = result as { planId: number };
-                router.replace(('/plans/' + participant.planId) as '/plans/[id]');
+                router.dismissTo(('/plans/' + participant.planId) as '/plans/[id]');
               },
             });
           }}

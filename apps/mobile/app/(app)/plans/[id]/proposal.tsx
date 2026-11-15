@@ -41,7 +41,7 @@ export default function Proposal() {
   const action = useAction(
     (input: OptionInput) => api.createOption(Number(id), input),
     'Propuesta lista para recibir votos.',
-    () => router.replace(('/plans/' + planId) as '/plans/[id]'),
+    () => router.dismissTo(('/plans/' + planId) as '/plans/[id]'),
   );
   if (!valid)
     return (
@@ -69,7 +69,7 @@ export default function Proposal() {
             )
           }
         />
-        <Button onPress={() => router.replace(('/plans/' + planId) as '/plans/[id]')}>
+        <Button onPress={() => router.dismissTo(('/plans/' + planId) as '/plans/[id]')}>
           Ver plan
         </Button>
       </Screen>

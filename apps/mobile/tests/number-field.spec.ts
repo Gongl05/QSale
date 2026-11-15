@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { localApiBridge } from './local-api';
 
 test('native form can clear the default count, recover validation, enter decimals and save', async ({
   page,
@@ -7,36 +8,10 @@ test('native form can clear the default count, recover validation, enter decimal
   const email = `number.regression.${Date.now()}@qsale.test`,
     password = 'NumberRegression2026';
   let token: string | undefined, planId: number | undefined;
-  // This browser-only bridge tests the actual native form against the local API.
-  // It does not replace the physical-device checks of GPS, camera or SecureStore.
-  await page.route('**/api/v1/**', async (route) => {
-    const req = route.request();
-    const target = new URL(req.url());
-    if (target.port !== '19080') {
-      await route.abort();
-      return;
-    }
-    const cors = {
-      'access-control-allow-origin': 'http://127.0.0.1:8081',
-      'access-control-allow-headers': 'authorization,content-type',
-      'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    };
-    if (req.method() === 'OPTIONS') {
-      await route.fulfill({ status: 204, headers: cors });
-      return;
-    }
-    const headers = { ...req.headers() };
-    delete headers.origin;
-    delete headers.host;
-    const response = await request.fetch(
-      'http://127.0.0.1:19080' + target.pathname + target.search,
-      { method: req.method(), headers, data: req.postDataBuffer() ?? undefined },
-    );
-    if (target.pathname.endsWith('/auth/signup') && response.ok())
-      token = (await response.json()).token;
-    if (target.pathname === '/api/v1/plans' && req.method() === 'POST' && response.ok())
+  await localApiBridge(page, request, async (path, method, response) => {
+    if (path.endsWith('/auth/signup') && response.ok()) token = (await response.json()).token;
+    if (path === '/api/v1/plans' && method === 'POST' && response.ok())
       planId = (await response.json()).id;
-    await route.fulfill({ response, headers: { ...response.headers(), ...cors } });
   });
   try {
     await page.goto('/register');

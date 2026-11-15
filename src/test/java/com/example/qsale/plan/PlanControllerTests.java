@@ -72,7 +72,7 @@ public class PlanControllerTests extends AbstractContainerBaseTest {
     }
 
     @Test
-    void shouldLetGuestJoinWithInviteCodeOnlyOnce() throws Exception {
+    void shouldReuseTheExistingMembershipWhenAnInvitationIsOpenedAgain() throws Exception {
         PlanDetailDto plan = createPlan(signUp(uniqueEmail()));
         String guestToken = signUp(uniqueEmail());
 
@@ -81,7 +81,9 @@ public class PlanControllerTests extends AbstractContainerBaseTest {
                 .andExpect(jsonPath("$.status").value("JOINED"));
 
         mockMvc.perform(post("/api/v1/plans/join/" + plan.getInviteCode()).header("Authorization", "Bearer " + guestToken))
-                .andExpect(status().isConflict());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("JOINED"));
+        assertEquals(2, participantRepository.findByPlanId(plan.getId()).size());
     }
 
     @Test

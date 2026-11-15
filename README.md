@@ -278,6 +278,16 @@ El equipo confirmó además registro desde Safari en iPhone con Wi-Fi desactivad
 
 Las mediciones fueron secuenciales, después de una lectura de calentamiento, desde la computadora de desarrollo. No constituyen una prueba de carga ni certifican disponibilidad continua. La disponibilidad durante la evaluación debe comprobarse por separado.
 
+### Revisión de flujos del 15 de noviembre
+
+La auditoría local corrigió el aislamiento entre sesiones, la conservación de notas al cambiar la asistencia, la protección del último administrador, la reutilización de invitaciones, la eliminación explícita de ubicación y los horarios incompletos. También añadió recuperación de rutas que no cargan, conservación de borradores al refrescar, mensajes de invitación con pasos de recuperación y navegación móvil al detalle sin duplicar pantallas. Las estimaciones se invalidan antes de recalcularlas cuando cambia la ubicación o la participación.
+
+`PUT /users/me` admite `removeLocation: true`; omitir la ubicación conserva la existente. Al cambiar el compromiso, omitir `note` conserva la nota y enviar `""` la borra. Reutilizar el código de un plan al que ya se pertenece devuelve esa participación, incluso si el plan dejó de estar abierto; no añade miembros duplicados ni permite que una persona nueva se una a un plan cerrado.
+
+Validación: 97 pruebas backend, 19 pruebas unitarias de contratos/cliente/sesión, ocho recorridos web, dos recorridos del formulario y navegación móvil ejecutados en navegador, TypeScript, compilación web, exportaciones Android/iOS y Expo Doctor 20/20. La auditoría de dependencias de producción no reportó vulnerabilidades. Las pruebas móviles de navegador no sustituyen la comprobación física de cámara, GPS, permisos denegados y SecureStore. Estas correcciones requieren un nuevo despliegue del backend/web y otra publicación móvil; la comprobación pública anterior corresponde a la versión previa.
+
+El cierre con día y lugar obligatorios, hora opcional, cambios de asistencia después de confirmar, recomendaciones por disponibilidad y propuestas de reprogramación son reglas acordadas para la siguiente implementación. La versión auditada conserva todavía las reglas anteriores de cierre; no se presentan esas funciones como terminadas.
+
 ### Crédito y desconexión de Render
 
 Desarrolla el frontend contra `http://localhost:8080`. Al finalizar pruebas remotas, detén RDS y EC2, verifica ambos estados y termina el laboratorio. El almacenamiento sigue cobrando; [RDS se reinicia automáticamente tras siete días detenida](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html). Revisa la fecha de reinicio en cada sesión. El crédito de US$50 no garantiza disponibilidad continua.

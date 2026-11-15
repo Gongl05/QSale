@@ -15,6 +15,56 @@ async function account(page: Page) {
   return () => ({ Authorization: token });
 }
 
+test('recovers from a server error and an offline write needs an explicit retry', async ({
+  page,
+  request,
+}) => {
+  const headers = await account(page);
+  let fail = true,
+    id: number | undefined;
+  await page.route(
+    (url) => url.pathname.endsWith('/notifications/page') && url.searchParams.get('size') === '10',
+    (route) =>
+      fail
+        ? route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: '{"message":"Internal failure"}',
+          })
+        : route.continue(),
+  );
+  await page
+    .getByRole('link', { name: /^Notificaciones/ })
+    .first()
+    .click();
+  await expect(page.getByRole('heading', { name: 'No pudimos cargar esta parte' })).toBeVisible();
+  await expect(page.getByText('Internal failure', { exact: true })).toHaveCount(0);
+  fail = false;
+  await page.getByRole('button', { name: 'Volver a intentar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Todo al día' })).toBeVisible();
+  await page.goto('/plans/new');
+  await page
+    .getByLabel('¿Cómo se llama el plan?')
+    .fill('Creación después de recuperar la conexión');
+  try {
+    await page.context().setOffline(true);
+    await expect(page.getByRole('status').filter({ hasText: 'Estás sin conexión' })).toBeVisible();
+    await page.getByRole('button', { name: 'Crear plan', exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'No pudimos conectar' })).toBeVisible();
+    await page.context().setOffline(false);
+    await expect(page.getByRole('button', { name: 'Crear plan', exact: true })).toBeEnabled();
+    await expect(page).toHaveURL(/\/plans\/new$/);
+    const empty = await request.get(api + '/plans', { headers: headers() });
+    expect((await empty.json()).totalElements).toBe(0);
+    await page.getByRole('button', { name: 'Crear plan', exact: true }).click();
+    await expect(page).toHaveURL(/\/plans\/\d+$/);
+    id = Number(new URL(page.url()).pathname.split('/').pop());
+  } finally {
+    await page.context().setOffline(false);
+    if (id) await request.delete(api + '/plans/' + id, { headers: headers() });
+  }
+});
+
 test('a failed route download has a friendly recovery and preserves the session', async ({
   page,
 }) => {

@@ -214,7 +214,7 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
                 : api.createPlan(values));
               await cache.invalidateQueries();
               toast(editing ? 'Plan actualizado.' : 'Tu plan está listo para recibir ideas.');
-              router.replace(('/plans/' + plan.id) as '/plans/[id]');
+              router.dismissTo(('/plans/' + plan.id) as '/plans/[id]');
             } catch (error) {
               setError('root', { message: (error as Error).message });
             }
