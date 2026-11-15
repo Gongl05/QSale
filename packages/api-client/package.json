@@ -1,0 +1,13 @@
+{
+  "name": "@qsale/api-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@qsale/contracts": "*",
+    "axios": "^1.21.1"
+  }
+}

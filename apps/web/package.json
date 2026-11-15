@@ -1,0 +1,42 @@
+{
+  "name": "@qsale/web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n session,web \"node --watch --env-file-if-exists=.env.local server/index.ts\" \"vite --host 127.0.0.1\"",
+    "build": "tsc --noEmit && vite build",
+    "start": "node --env-file-if-exists=.env.local server/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@hookform/resolvers": "^5.2.2",
+    "@qsale/api-client": "*",
+    "@qsale/contracts": "*",
+    "@tanstack/react-query": "^5.107.1",
+    "axios": "^1.21.1",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.3.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.73.0",
+    "qrcode.react": "^4.2.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-hook-form": "^7.92.0",
+    "react-router-dom": "^7.18.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^5.0.3",
+    "@types/leaflet": "^1.9.20",
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/supertest": "^6.0.3",
+    "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^9.2.1",
+    "supertest": "^7.1.4",
+    "vite": "^8.3.8"
+  }
+}

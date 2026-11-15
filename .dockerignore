@@ -8,3 +8,12 @@ docs/
 .env.example
 *.iml
 postman_collection.json
+node_modules/
+**/node_modules/
+**/.env
+**/.env.*
+**/test-results/
+**/playwright-report/
+**/.expo/
+apps/*/dist/
+apps/*/web-build/

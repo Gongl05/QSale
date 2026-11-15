@@ -1,0 +1,29 @@
+{
+  "name": "qsale",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @qsale/web",
+    "dev:mobile": "npm run start --workspace @qsale/mobile",
+    "build:web": "npm run build --workspace @qsale/web",
+    "check": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "test:web": "playwright test --config apps/web/playwright.config.ts",
+    "test:mobile-form": "playwright test --config apps/mobile/playwright.config.ts"
+  },
+  "overrides": {
+    "minimatch": "^11.0.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^24.0.0",
+    "prettier": "^3.10.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

@@ -70,12 +70,18 @@
 - **Documentación:** Springdoc OpenAPI (Swagger UI) y colección de Postman.
 - **Testing y CI:** JUnit 5, Mockito, Testcontainers, GitHub Actions.
 - **Otros:** Lombok, Docker.
+- **Web:** React, TypeScript, React Router, Axios, TanStack Query, React Hook Form y Zod; servidor Node para la sesión mediante cookie HttpOnly.
+- **Móvil:** React Native y Expo Router, SecureStore para los tokens, cámara para invitaciones QR y ubicación GPS bajo solicitud.
+- **Mapa en los clientes:** Leaflet y OpenStreetMap, con atribución y alternativa manual por coordenadas.
 
 ### Arquitectura
 
 ```mermaid
 flowchart LR
-    Client[Cliente / Postman] -->|JWT| Filter[JwtAuthorizationFilter]
+    Web[React web] -->|Cookie HttpOnly| Session[Node / sesión web]
+    Session -->|JWT| Filter[JwtAuthorizationFilter]
+    Mobile[React Native / Expo] -->|JWT / SecureStore| Filter
+    Client[Postman] -->|JWT| Filter
     Filter --> Controller[Controllers<br/>application]
     Controller --> Service[Services<br/>domain]
     Service --> Repository[Repositories<br/>infrastructure]
@@ -146,6 +152,57 @@ Las variables de entorno principales son:
 | `RESEND_API_KEY` | Opcional | Clave de Resend para enviar correo por HTTPS. |
 | `MAIL_FROM` | Recomendada | Remitente verificado, por ejemplo `QSale <onboarding@resend.dev>`. |
 | `CORS_ALLOWED_ORIGINS` | Opcional | Orígenes permitidos por CORS, separados por comas. |
+
+### Clientes web y móvil
+
+Los clientes están en `apps/web` y `apps/mobile`. Comparten los contratos, validaciones y el cliente Axios de `packages/contracts` y `packages/api-client`. La información de planes, votos, disponibilidad, asistencia y notificaciones procede de la API. El listado de planes y las notificaciones usan endpoints paginados diferentes; el tamaño admite 10, 25, 50 y 100 elementos.
+
+Necesitas Node.js 24 y una API local en ejecución. Instala las dependencias desde la raíz:
+
+```sh
+npm ci
+npm run dev:web
+```
+
+La web abre en `http://127.0.0.1:5173`; su servidor de sesión escucha en `3001`. El valor de desarrollo de `API_URL` es `http://127.0.0.1:19080/api/v1`. Si ejecutas Spring Boot en su puerto habitual `8080`, configura `API_URL=http://127.0.0.1:8080/api/v1` al iniciar el proceso o en `apps/web/.env.local`. Este archivo queda excluido de Git y Docker. `APP_ORIGIN` debe coincidir exactamente con el origen del navegador; su valor local es `http://127.0.0.1:5173`.
+
+El navegador conserva el token de acceso en memoria y el de renovación en una cookie HttpOnly. En producción la cookie también usa Secure y SameSite=Lax. El servidor de sesión comprueba el origen de las operaciones de escritura, y el proxy no permite acceder directamente a los endpoints de autenticación. Ambos clientes comparten renovación de sesión, cancelación de consultas y reintentos limitados a lecturas ante fallos temporales. No se reintentan escrituras automáticamente.
+
+Para abrir la app móvil, configura `EXPO_PUBLIC_API_URL` con la URL de la API accesible desde el teléfono y ejecuta:
+
+```sh
+npm run dev:mobile
+```
+
+En una prueba por Wi-Fi, el teléfono y la computadora deben estar en la misma red. Usa la IPv4 privada de la computadora; `localhost` en el teléfono apunta al propio teléfono. Expo Go y la CLI deben tener sesión iniciada en la misma cuenta de Expo. Abre el QR de desarrollo con la cámara del iPhone o desde Expo Go. La app solicita permisos de cámara y ubicación cuando seleccionas esas acciones; puedes escribir el código o las coordenadas si no concedes el permiso. Los tokens se guardan con SecureStore en iOS y Android; la vista previa de navegador usa memoria.
+
+`EXPO_PUBLIC_WEB_URL` define el origen web admitido para los enlaces de invitación. Los QR también admiten el esquema `qsale://join/CODIGO`. Sin una URL web configurada, ese esquema sirve al lector interno de QSale; abrirlo desde otras apps requiere tener instalado el cliente nativo. Las variables `EXPO_PUBLIC_*` se incluyen en el cliente: configura únicamente URLs públicas, nunca contraseñas ni claves de mapas o correo.
+
+Los horarios de las propuestas se coordinan en `America/Lima`. `PLANS_TIME_ZONE` configura el reloj de las validaciones del backend para evitar que un servidor UTC rechace una hora futura de Lima. Las estimaciones muestran si provienen de rutas o de Haversine; no se presentan como tráfico real ni como rutas individuales de los participantes.
+
+Comprueba el código con:
+
+```sh
+npm run check
+npm test
+npm run build:web
+npm run test:web
+```
+
+La prueba de navegador usa una API aislada en `127.0.0.1:19080`, PostgreSQL y Mailpit; crea cuentas y planes de prueba y elimina sus planes al terminar. No la ejecutes contra una base compartida o de producción. Para comprobar los paquetes nativos, ejecuta desde `apps/mobile`:
+
+```sh
+npx expo-doctor
+npx expo export --platform android --platform ios --output-dir dist
+```
+
+Exportar comprueba la generación de los paquetes; la cámara, el GPS, los permisos, la persistencia y la navegación también deben probarse en el dispositivo. `apps/mobile/eas.json` prepara perfiles de desarrollo y distribución interna; esos perfiles no implican que exista un build publicado.
+
+### Desplegar la web en el servidor existente
+
+Usa el repositorio como contexto raíz y `apps/web/Dockerfile` como Dockerfile. El contenedor sirve la web y el intermediario de sesión en el puerto `3001`. Configura `NODE_ENV=production`, `APP_ORIGIN` con el origen HTTPS público de la web y `API_URL` con la raíz real de la API, incluida la terminación `/api/v1`. Dokploy debe publicar el puerto `3001` mediante HTTPS. No hace falta crear otra instancia EC2, otra base de datos ni una IP elástica para este servicio.
+
+Comprueba `/health`, acceso y recarga de sesión, rutas directas como `/plans/ID`, invitaciones entre dos usuarios y ambas paginaciones desde la URL pública. El despliegue de la API debe incluir las migraciones V1 y V2 antes de usar los clientes. Configura la app móvil con la URL HTTPS vigente y comprueba ambos clientes contra la misma API. La verificación local no sustituye esas comprobaciones públicas ni la disponibilidad durante la evaluación.
 
 ### AWS con Dokploy
 

@@ -35,3 +35,15 @@ build/
 ### Environment ###
 .env
 .env.example
+
+### Frontend ###
+node_modules/
+.expo/
+apps/*/dist/
+apps/*/web-build/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.env.local
+.env.*.local
