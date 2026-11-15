@@ -38,6 +38,18 @@
         }
       ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fdfa1697-00a0-4769-a894-a9520abbb061"
+      }
+    },
+    "owner": "gonzagl05",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fdfa1697-00a0-4769-a894-a9520abbb061"
+    }
   }
 }

@@ -4,6 +4,14 @@
 
 **Integrantes:** Gonzalo Gaviño · Mathias Pariona · Adriano Raffo
 
+| Integrante | Principales aportes | Cumplimiento individual |
+|---|---|---|
+| Gonzalo Gaviño | Pendiente de detallar | 100 % |
+| Mathias Pariona | Pendiente de detallar | 100 % |
+| Adriano Raffo | Pendiente de detallar | 100 % |
+
+El cumplimiento individual fue indicado por el equipo. Los aportes deben detallarse antes de la entrega.
+
 **Despliegue:** AWS EC2 + Dokploy + RDS PostgreSQL · **Postman:** [`postman_collection.json`](postman_collection.json)
 
 **URL verificada el 14 de noviembre de 2026:** [Health](https://api.98.81.93.181.sslip.io/actuator/health) · [Swagger UI](https://api.98.81.93.181.sslip.io/swagger-ui.html). Los recursos se detienen entre sesiones para conservar el crédito del laboratorio. Al iniciar EC2, comprueba su IP pública y actualiza el dominio si cambió.
@@ -197,6 +205,18 @@ npx expo export --platform android --platform ios --output-dir dist
 ```
 
 Exportar comprueba la generación de los paquetes; la cámara, el GPS, los permisos, la persistencia y la navegación también deben probarse en el dispositivo. `apps/mobile/eas.json` prepara perfiles de desarrollo y distribución interna; esos perfiles no implican que exista un build publicado.
+
+### Preparar la distribución móvil
+
+El proyecto está vinculado a [@gonzagl05/qsale en Expo](https://expo.dev/accounts/gonzagl05/projects/qsale). `expo-updates`, la URL del proyecto y los canales de desarrollo, vista previa y producción están configurados. La vinculación no publica la app ni inicia compilaciones.
+
+Antes de publicar, configura `EXPO_PUBLIC_API_URL` con la API HTTPS verificada y `EXPO_PUBLIC_WEB_URL` con el origen web HTTPS en el entorno `preview` de Expo. Desde `apps/mobile`, ejecuta:
+
+```sh
+npx eas-cli update --branch preview --environment preview --message "QSale: versión de revisión"
+```
+
+Abre el enlace de la actualización en el dispositivo que usará el docente y comprueba que carga con Metro detenido y desde otra red. Una actualización requiere un cliente compatible con su runtime y sus módulos nativos; comprueba la compatibilidad con Expo Go antes de dar por terminada la entrega. El perfil `preview` también permite generar un APK Android. La distribución de un cliente iOS propio requiere resolver la firma de Apple por separado. No se ha contratado un plan ni se ha iniciado un build de pago.
 
 ### Desplegar la web en el servidor existente
 
