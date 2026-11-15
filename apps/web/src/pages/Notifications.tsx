@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, Check } from 'lucide-react';
@@ -15,6 +16,10 @@ export default function Notifications() {
     queryFn: ({ signal }) => api.notifications(filters, signal),
   });
   const read = useAction((id: number) => api.markRead(id), 'Notificación marcada como leída.');
+  useEffect(() => {
+    if (query.data && pager.page > 0 && !query.data.content.length)
+      pager.update({ page: String(Math.max(1, query.data.totalPages)) }, true);
+  }, [query.data, pager.page]);
   return (
     <>
       <PageHeading
@@ -31,7 +36,10 @@ export default function Notifications() {
             type="checkbox"
             checked={unreadOnly}
             onChange={(event) =>
-              pager.update({ unread: event.target.checked ? 'true' : undefined, page: '1' })
+              pager.update({
+                unread: event.target.checked ? 'true' : undefined,
+                page: '1',
+              })
             }
           />
           Solo sin leer

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
@@ -27,6 +28,10 @@ export default function Notifications() {
     queryFn: ({ signal }) => api.notifications(filters, signal),
   });
   const read = useAction((id: number) => api.markRead(id), 'Notificación marcada como leída.');
+  useEffect(() => {
+    if (query.data && pager.page > 0 && !query.data.content.length)
+      pager.update({ page: String(Math.max(1, query.data.totalPages)) });
+  }, [query.data, pager.page]);
   return (
     <Screen refreshing={query.isRefetching} onRefresh={() => void query.refetch()}>
       <Heading
