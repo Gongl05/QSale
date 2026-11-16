@@ -23,6 +23,21 @@ function changeSession() {
   return generation;
 }
 const sessionHTTP = axios.create({ baseURL: '/session', timeout: 12_000 });
+const csrfHTTP = axios.create({ baseURL: '/session', timeout: 12_000 });
+let csrfRequest: Promise<string> | null = null;
+async function csrfToken() {
+  if (!csrfRequest) {
+    const pending = csrfHTTP.get<{token: string}>('/csrf').then(({data}) => data.token)
+      .finally(() => { if (csrfRequest === pending) csrfRequest = null; });
+    csrfRequest = pending;
+  }
+  return csrfRequest;
+}
+sessionHTTP.interceptors.request.use(async config => {
+  if (!['get', 'head', 'options'].includes(config.method ?? 'get'))
+    config.headers.set('X-CSRF-Token', await csrfToken());
+  return config;
+});
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: retryRead, staleTime: 30_000 },
@@ -55,15 +70,19 @@ async function refresh() {
   refreshRequest = request;
   return request;
 }
-export const api = createQSaleApi(
-  createApiClient({
+const browserHTTP = createApiClient({
     baseURL: '/backend/api/v1',
     getAccessToken: () => accessToken,
     getSessionGeneration: () => generation,
     refresh,
     onSessionExpired: () => expireSession(),
-  }),
-);
+  });
+browserHTTP.interceptors.request.use(async config => {
+  if (!['get', 'head', 'options'].includes(config.method ?? 'get'))
+    config.headers.set('X-CSRF-Token', await csrfToken());
+  return config;
+});
+export const api = createQSaleApi(browserHTTP);
 
 interface Session {
   user: User | null;

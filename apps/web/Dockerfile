@@ -19,6 +19,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/apps/web/package.json ./apps/web/package.json
 COPY --from=build /app/apps/web/server/app.ts ./apps/web/server/app.ts
+COPY --from=build /app/apps/web/server/csrf.ts ./apps/web/server/csrf.ts
 COPY --from=build /app/apps/web/server/index.ts ./apps/web/server/index.ts
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/packages ./packages

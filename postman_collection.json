@@ -242,7 +242,7 @@
               }
             ],
             "url": "{{baseUrl}}/auth/signup",
-            "description": "Crea una cuenta con rol USER (password con BCrypt, mínimo 8 caracteres con mayúscula, minúscula y número) y devuelve access + refresh token. Dispara el evento UserRegisteredEvent, que envía el correo de bienvenida de forma asíncrona. 409 si el email ya existe.",
+            "description": "Crea una cuenta con rol USER (password con Argon2id, mínimo 8 caracteres con mayúscula, minúscula y número) y devuelve access + refresh token. Dispara el evento UserRegisteredEvent, que envía el correo de bienvenida de forma asíncrona. 409 si el email ya existe.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Ana Torres\",\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
@@ -268,7 +268,7 @@
                   }
                 ],
                 "url": "{{baseUrl}}/auth/signup",
-                "description": "Crea una cuenta con rol USER (password con BCrypt, mínimo 8 caracteres con mayúscula, minúscula y número) y devuelve access + refresh token. Dispara el evento UserRegisteredEvent, que envía el correo de bienvenida de forma asíncrona. 409 si el email ya existe.",
+                "description": "Crea una cuenta con rol USER (password con Argon2id, mínimo 8 caracteres con mayúscula, minúscula y número) y devuelve access + refresh token. Dispara el evento UserRegisteredEvent, que envía el correo de bienvenida de forma asíncrona. 409 si el email ya existe.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"name\": \"Ana Torres\",\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
@@ -399,7 +399,7 @@
               }
             ],
             "url": "{{baseUrl}}/auth/signin",
-            "description": "Login con AuthenticationManager + BCrypt. Guarda el access token en {{token}}, que es la auth por defecto de toda la colección. El JWT lleva los claims sub (email), userId, role y type.",
+            "description": "Login con protección persistente: cinco fallos bloquean 15 minutos. Argon2id verifica las claves y migra BCrypt tras autenticación correcta. Guarda el access token en {{token}}, que es la auth por defecto de toda la colección. El JWT lleva los claims sub (email), userId, role y type.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
@@ -425,7 +425,7 @@
                   }
                 ],
                 "url": "{{baseUrl}}/auth/signin",
-                "description": "Login con AuthenticationManager + BCrypt. Guarda el access token en {{token}}, que es la auth por defecto de toda la colección. El JWT lleva los claims sub (email), userId, role y type.",
+                "description": "Login con protección persistente: cinco fallos bloquean 15 minutos. Argon2id verifica las claves y migra BCrypt tras autenticación correcta. Guarda el access token en {{token}}, que es la auth por defecto de toda la colección. El JWT lleva los claims sub (email), userId, role y type.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"{{organizerEmail}}\",\n  \"password\": \"{{password}}\"\n}",

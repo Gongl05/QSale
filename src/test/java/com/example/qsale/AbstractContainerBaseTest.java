@@ -23,6 +23,9 @@ public abstract class AbstractContainerBaseTest {
     static void overrideTestProperties(DynamicPropertyRegistry registry) {
         String jobScope=java.util.UUID.randomUUID().toString();
         registry.add("jobs.scope",()->jobScope);
+        registry.add("security.scope",()->jobScope);
+        registry.add("security.rate-limit.api-limit",()->10000);
+        registry.add("security.rate-limit.auth-limit",()->10000);
         registry.add("spring.datasource.url", postgresqlContainer::getJdbcUrl);
         registry.add("spring.datasource.username", postgresqlContainer::getUsername);
         registry.add("spring.datasource.password", postgresqlContainer::getPassword);

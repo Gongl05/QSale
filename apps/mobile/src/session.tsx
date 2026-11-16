@@ -18,6 +18,7 @@ const devHost = Constants.expoConfig?.hostUri?.split(':')[0] ?? '127.0.0.1';
 export const apiURL =
   process.env.EXPO_PUBLIC_API_URL ??
   (__DEV__ ? `http://${Platform.OS === 'web' ? '127.0.0.1' : devHost}:19080/api/v1` : '');
+if (!__DEV__ && !/^https:\/\//i.test(apiURL)) throw new Error('Production requires an HTTPS API URL.');
 const authHTTP = axios.create({ baseURL: apiURL + '/auth', timeout: 12000 });
 let tokens: Tokens | null = null;
 let epoch = 0;

@@ -14,7 +14,10 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import com.example.qsale.auth.components.MigratingPasswordEncoder;
+import com.example.qsale.security.RequestLimits;
+import com.example.qsale.security.RequestLimitFilter;
+import com.example.qsale.security.TransportSecurityFilter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -47,7 +50,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new MigratingPasswordEncoder();
     }
 
     @Bean
@@ -63,11 +66,15 @@ public class SecurityConfig {
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(@Value("${security.require-https:false}") boolean requireHttps) {
+        if (allowedOrigins.stream().anyMatch(origin -> origin.contains("*") ||
+                (requireHttps && !origin.startsWith("https://")))) {
+            throw new IllegalStateException("CORS requires explicit origins and HTTPS in production");
+        }
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -75,8 +82,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, RequestLimits requestLimits,
+            @Value("${security.rate-limit.api-limit:120}") int apiLimit,
+            @Value("${security.rate-limit.auth-limit:30}") int authLimit,
+            @Value("${security.require-https:false}") boolean requireHttps,
+            @Value("${security.scope:default}") String scope) throws Exception {
         return http
+                // The API authenticates only explicit Bearer headers; browser cookies terminate at the CSRF-protected web service.
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(manager -> manager.sessionCreationPolicy(STATELESS))
@@ -92,6 +104,8 @@ public class SecurityConfig {
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new TransportSecurityFilter(requireHttps), JwtAuthorizationFilter.class)
+                .addFilterAfter(new RequestLimitFilter(requestLimits, apiLimit, authLimit, scope), JwtAuthorizationFilter.class)
                 .build();
     }
 }

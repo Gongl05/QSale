@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     container_name: qsale-db
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_DB: qsale
       POSTGRES_USER: postgres
@@ -13,11 +13,11 @@ services:
       - postgres-data:/var/lib/postgresql/data
 
   mailpit:
-    image: axllent/mailpit
+    image: axllent/mailpit:v1.27
     container_name: qsale-mail
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
 
 volumes:
   postgres-data:

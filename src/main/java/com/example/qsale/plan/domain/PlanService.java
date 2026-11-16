@@ -218,6 +218,9 @@ public class PlanService {
     }
 
     private void validateDates(PlanRequestDto dto) {
+        if (dto.getBudget() != null && !Double.isFinite(dto.getBudget())) {
+            throw new InvalidOperationException("budget must be a finite number");
+        }
         if (dto.getTentativeStartDate() != null && dto.getTentativeEndDate() != null
                 && dto.getTentativeEndDate().isBefore(dto.getTentativeStartDate())) {
             throw new InvalidOperationException("tentativeEndDate must be on or after tentativeStartDate");

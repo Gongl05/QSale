@@ -66,7 +66,7 @@ El resumen se apoya en los commits `063d5f2`, `a5641df`, `0cd19f7`, `1e6a305` y 
 
 - **Lenguaje y framework:** Java 21, Spring Boot 4.1 (Web MVC, Data JPA / Hibernate 7, Security, Validation, Mail, Thymeleaf, Actuator).
 - **Base de datos:** PostgreSQL 16 (Docker en local).
-- **Seguridad:** JWT con jjwt 0.12, BCrypt.
+- **Seguridad:** JWT con jjwt 0.12 y Argon2id.
 - **Mapeo:** ModelMapper.
 - **API externa:** [OpenRouteService Matrix API](https://openrouteservice.org/) para distancias y tiempos de traslado, con respaldo por fórmula de Haversine.
 - **Correo:** JavaMailSender + plantillas Thymeleaf; Mailpit como servidor SMTP de desarrollo.
@@ -135,11 +135,11 @@ Las sesiones revocables, reprogramaciones y trabajos persistentes amplían el mo
 
 ## 6. Medidas de seguridad
 
-Spring Security protege la API con Bearer JWT y aplica permisos en los servicios mediante `@PreAuthorize`. USER y ADMIN se guardan en PostgreSQL; organizar un plan requiere autorización específica. El registro valida unicidad de correo y fortaleza de contraseña; BCrypt exige hasta 72 bytes UTF-8. No se puede retirar el acceso al último administrador.
+Spring Security protege la API con Bearer JWT y `@PreAuthorize`; USER, ADMIN y permisos de organización se comprueban en el servidor. Argon2id usa 19 MiB, dos iteraciones y paralelismo uno; BCrypt migra tras un login correcto. Cinco fallos bloquean la cuenta 15 minutos. PostgreSQL limita la API a 120 solicitudes por ruta/minuto y 600 totales por usuario; credenciales, a 30 por IP; renovación/logout, a 120 por IP. Devuelve 429 con Retry-After. Los eventos de seguridad registran identificadores hash.
 
-Cada inicio de sesión tiene un registro revocable y guarda únicamente el hash del refresh. Renovarlo lo sustituye; reutilizar uno anterior revoca esa sesión. Logout invalida acceso y renovación sin afectar otros dispositivos. La web conserva acceso en memoria y refresh en cookie HttpOnly, Secure en producción y SameSite=Lax; el móvil usa SecureStore. Actualizar esta política exige reautenticar las sesiones anteriores.
+Cada sesión guarda el hash del refresh; rotarlo sustituye el anterior y su reutilización revoca esa sesión. Logout invalida acceso y renovación por dispositivo. La web conserva acceso en memoria y refresh en cookie HttpOnly/Secure/SameSite=Lax; el móvil usa SecureStore. Origin y un token CSRF firmado, ligado a la sesión, protegen las escrituras web.
 
-CORS limita los orígenes y Express comprueba Origin al escribir. Los DTO no exponen contraseñas; las consultas parametrizadas evitan concatenar SQL. Las claves deben permanecer en el entorno. La edición incluye una versión y devuelve 409 si el formulario quedó desactualizado, conservando el borrador.
+CORS admite orígenes explícitos. DTO y consultas parametrizadas protegen datos y entradas; las claves permanecen en el entorno. Los cuerpos se limitan a 64 KiB y se bloquean archivos ocultos, backups y source maps. Editar una versión antigua devuelve 409 y conserva el borrador.
 
 ## 7. Eventos y asincronía
 
@@ -149,7 +149,7 @@ Una falla de correo conserva el aviso dentro de QSale. Un administrador consulta
 
 ## 8. GitHub & Management
 
-Las tareas se trabajan en ramas y PR por corrección, con commits descriptivos en inglés y validación previa. Los workflows comprueban Maven, TypeScript, unitarias, build, paquetes nativos y recorridos aislados. El fork `Adrian0raffo/QSale` permite validar con esa cuenta; la entrega continúa en `Gongl05/QSale`. Las ejecuciones no se trasladan entre repositorios: se enlaza su evidencia en el PR. El bloqueo de facturación del propietario original requiere soporte. No se acredita uso de Projects/milestones sin evidencia de su utilización.
+Se usan ramas, PR y commits en inglés con pruebas previas. CI comprueba Maven, TypeScript, unitarias, build, paquetes nativos y recorridos aislados. La entrega es `Gongl05/QSale`; si su cuenta bloquea Actions, el fork permite validar y enlazar evidencia. No se acredita uso de Projects/milestones sin evidencia.
 
 ## 9. Ejecución local y despliegue
 
@@ -163,7 +163,7 @@ npm run dev:mobile
 
 La web abre en `http://127.0.0.1:5173`. Configura `API_URL=http://127.0.0.1:8080/api/v1` y `APP_ORIGIN` con el origen exacto. El puerto predeterminado 19080 corresponde a las pruebas aisladas. En el teléfono, `EXPO_PUBLIC_API_URL` debe ser accesible desde su red; `EXPO_PUBLIC_WEB_URL` define las invitaciones admitidas. Cámara y GPS se solicitan al usarlos; hay entrada manual.
 
-Variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `MAPS_API_KEY`, `RESEND_API_KEY`, `MAIL_FROM` y `PLANS_TIME_ZONE`. AWS usa `SPRING_DATASOURCE_URL` hacia RDS con TLS y `SHOW_SQL=false`. El backend emplea el Dockerfile raíz; la web, `apps/web/Dockerfile`, puerto 3001 y HTTPS.
+Variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `MAPS_API_KEY`, `RESEND_API_KEY`, `MAIL_FROM` y `PLANS_TIME_ZONE`. Docker activa el perfil backend `prod`: exige HTTPS y deshabilita Swagger. Configura las IP exactas del proxy en `TRUSTED_PROXY_PATTERN` (Java) y `TRUSTED_PROXY` (web); cierra el acceso directo a sus puertos. La web requiere `CSRF_SECRET` aleatorio de al menos 32 caracteres. `API_URL` y `EXPO_PUBLIC_API_URL` deben usar HTTPS en producción. PostgreSQL necesita una cuenta sin privilegios administrativos y RDS con TLS en `SPRING_DATASOURCE_URL`. Secretos y certificados se configuran fuera de Git.
 
 Validación: `./mvnw verify`, `npm run check`, `npm test`, `npm run build:web`, `npm run test:web` y `npm run test:mobile-form`. Los recorridos necesitan API temporal en 19080, PostgreSQL y correo local; nunca producción. Desde móvil, `npx expo-doctor` y `npx expo export --platform android --platform ios --output-dir dist` validan configuración y paquetes, sin certificar sensores, permisos o SecureStore físicos.
 

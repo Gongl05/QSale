@@ -6,7 +6,9 @@ COPY src ./src
 RUN mvn -B package -DskipTests
 
 FROM eclipse-temurin:21-jre
+ENV SPRING_PROFILES_ACTIVE=prod
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
+USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

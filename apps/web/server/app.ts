@@ -2,6 +2,8 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import type { Tokens } from '@qsale/contracts';
+import { randomBytes } from 'node:crypto';
+import { equalTokens, issueCsrf, validCsrf, sessionIdentity } from './csrf.ts';
 
 interface Config {
   apiURL: string;
@@ -9,12 +11,20 @@ interface Config {
   production?: boolean;
   dist?: string;
   upstream?: typeof fetch;
+  csrfSecret?: string;
+  trustedProxy?: string | false;
 }
 
 export function createApp(config: Config) {
   const app = express();
   const upstream = config.upstream ?? fetch;
   const apiURL = config.apiURL.replace(/\/$/, '');
+  const csrfSecret = config.csrfSecret ?? (config.production ? '' : randomBytes(32).toString('hex'));
+  if (csrfSecret.length < 32) throw new Error('CSRF_SECRET must contain at least 32 characters.');
+  if (config.production && !config.origin.startsWith('https://')) throw new Error('Production requires an HTTPS origin.');
+  if (config.production && !apiURL.startsWith('https://')) throw new Error('Production requires an HTTPS API_URL.');
+  const csrfCookie = config.production ? '__Host-qsale_csrf' : 'qsale_csrf';
+  app.set('trust proxy', config.trustedProxy ?? 'loopback');
   const cookie = {
     httpOnly: true,
     secure: Boolean(config.production),
@@ -22,6 +32,16 @@ export function createApp(config: Config) {
     path: '/session',
   };
   app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    if (config.production && !req.secure && req.path !== '/health') {
+      res.status(426).json({ message: 'Se requiere una conexión HTTPS.' }); return;
+    }
+    let pathname: string;
+    try { pathname = decodeURIComponent(req.path); }
+    catch { res.sendStatus(400); return; }
+    if (/(^|\/)\.|\.(map|sql|bak|sqlite)$/i.test(pathname)) { res.sendStatus(404); return; }
+    next();
+  });
   app.use((_req, res, next) => {
     res.set({
       'X-Content-Type-Options': 'nosniff',
@@ -35,11 +55,28 @@ export function createApp(config: Config) {
   });
   app.use(cookieParser());
   app.use(express.json({ limit: '64kb' }));
+  app.get('/session/csrf', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const session = sessionIdentity(req.cookies.qsale_refresh);
+    const old = req.cookies[csrfCookie];
+    const token = validCsrf(csrfSecret, old, session) ? old : issueCsrf(csrfSecret, session);
+    res.cookie(csrfCookie, token, { ...cookie, path: '/', maxAge: 7 * 86400000 });
+    res.json({ token });
+  });
   app.use(['/session', '/backend'], (req, res, next) => {
     res.set('Cache-Control', 'no-store');
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('origin') !== config.origin) {
       res.status(403).json({ message: 'Origen no autorizado.' });
       return;
+    }
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      const credential = req.baseUrl === '/backend'
+        ? req.get('Authorization')?.match(/^Bearer (.+)$/i)?.[1] : req.cookies.qsale_refresh;
+      const session = sessionIdentity(credential);
+      const token = req.cookies[csrfCookie];
+      if (!equalTokens(token, req.get('X-CSRF-Token')) || !validCsrf(csrfSecret, token, session)) {
+        res.status(403).json({ code: 'CSRF_INVALID', message: 'Actualiza la página antes de continuar.' }); return;
+      }
     }
     next();
   });
@@ -155,7 +192,7 @@ export function createApp(config: Config) {
     res.json({ status: 'UP' });
   });
   if (config.dist) {
-    app.use(express.static(config.dist, { index: false, maxAge: '1h' }));
+    app.use(express.static(config.dist, { index: false, maxAge: '1h', dotfiles: 'deny' }));
     app.get('/{*route}', (req, res) => {
       if (req.path.startsWith('/session') || req.path.startsWith('/backend')) {
         res.sendStatus(404);
@@ -167,7 +204,8 @@ export function createApp(config: Config) {
   app.use(
     (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       res
-        .status(err instanceof SyntaxError ? 400 : 500)
+        .status(err instanceof SyntaxError ? 400 :
+          typeof err === 'object' && err !== null && 'status' in err && err.status === 413 ? 413 : 500)
         .json({ message: 'No se pudo procesar la solicitud.' });
     },
   );
