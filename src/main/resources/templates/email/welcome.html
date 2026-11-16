@@ -2,15 +2,16 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Bienvenido a QSale</title>
+    <title>Bienvenido a Quesale</title>
     <style th:replace="~{email/layout-style :: style}"></style>
 </head>
 <body>
 <div class="card">
-    <p class="brand">QSale</p>
+    <p class="brand"><img th:if="${logoUrl != null}" th:src="${logoUrl}" alt="" width="32" height="32" style="vertical-align:middle;margin-right:8px">Quesale</p>
     <h2>¡Hola, <span th:text="${name}">Ana</span>!</h2>
     <p>Tu cuenta fue creada correctamente con el correo <strong th:text="${email}">ana@correo.com</strong>.</p>
     <p>Ya puedes crear planes, invitar a tu grupo, votar fechas y lugares, y ver el semáforo de viabilidad de cada salida.</p>
+    <p><a class="action" th:href="${actionUrl}">Ver mis planes</a></p>
     <p class="muted">Si no creaste esta cuenta, puedes ignorar este correo.</p>
 </div>
 </body>

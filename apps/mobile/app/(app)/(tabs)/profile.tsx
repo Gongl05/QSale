@@ -1,25 +1,41 @@
-import { useState } from 'react';
-import { View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { locationSchema, type Location } from '@qsale/contracts';
-import { api, useSession } from '../../../src/session';
-import { LocationPicker } from '../../../src/Map';
-import { Button, Field, Heading, Screen, Text, styles, useToast } from '../../../src/ui';
+import { useState } from "react";
+import { View } from "react-native";
+import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { locationSchema, type Location } from "@qsale/contracts";
+import { api, useSession } from "../../../src/session";
+import { useUnsavedChanges } from "../../../src/useUnsavedChanges";
+import { LocationPicker } from "../../../src/Map";
+import {
+  Button,
+  Field,
+  Heading,
+  Screen,
+  Text,
+  useToast,
+  useUI,
+} from "../../../src/ui";
 export default function Profile() {
+  const { colors, styles, dark } = useUI();
   const { user, updateUser, signOut } = useSession();
   const router = useRouter();
   const cache = useQueryClient();
   const toast = useToast();
   const [name, setName] = useState(user!.name),
     [location, setLocation] = useState<Location | null>(user!.location),
-    [error, setError] = useState(''),
+    [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [locationValid, setLocationValid] = useState(true);
+  useUnsavedChanges(
+    !busy &&
+      (name !== user!.name ||
+        JSON.stringify(location) !== JSON.stringify(user!.location) ||
+        !locationValid),
+  );
   return (
     <Screen>
       <Heading
-        title="Tu punto de partida"
+        title="Mi perfil"
         description="Tu ubicación ayuda a encontrar un lugar más conveniente para el grupo."
       />
       <View style={styles.surface}>
@@ -30,11 +46,16 @@ export default function Profile() {
           maxLength={100}
           autoComplete="name"
         />
-        <Field label="Correo electrónico" value={user!.email} editable={false} />
+        <Field
+          label="Correo electrónico"
+          value={user!.email}
+          editable={false}
+        />
         <Text style={styles.heading}>Ubicación de referencia</Text>
         <Text style={styles.subtitle}>
-          Usa un punto cercano, como una avenida o tu distrito. No necesitas compartir tu casa. El
-          grupo verá el punto medio y las estimaciones agregadas.
+          Usa un punto cercano, como una avenida o tu distrito. No necesitas
+          compartir tu casa. El grupo verá el punto medio y las estimaciones
+          agregadas.
         </Text>
         <LocationPicker
           value={location}
@@ -50,13 +71,13 @@ export default function Profile() {
           busy={busy}
           disabled={!locationValid}
           onPress={async () => {
-            setError('');
+            setError("");
             if (name.trim().length < 2 || name.trim().length > 100) {
-              setError('Tu nombre necesita entre 2 y 100 caracteres.');
+              setError("Tu nombre necesita entre 2 y 100 caracteres.");
               return;
             }
             if (location && !locationSchema.safeParse(location).success) {
-              setError('Revisa la latitud y longitud.');
+              setError("Revisa la latitud y longitud.");
               return;
             }
             setBusy(true);
@@ -67,7 +88,7 @@ export default function Profile() {
               });
               updateUser(updated);
               await cache.invalidateQueries();
-              toast('Tu perfil está actualizado.');
+              toast("Tu perfil está actualizado.");
             } catch (error) {
               setError((error as Error).message);
             } finally {
@@ -78,15 +99,21 @@ export default function Profile() {
           Guardar mi perfil
         </Button>
       </View>
-      {user!.role === 'ADMIN' && (
-        <Button variant="secondary" icon="shield" onPress={() => router.push('/admin')}>
+      {user!.role === "ADMIN" && (
+        <Button
+          variant="secondary"
+          icon="shield"
+          onPress={() => router.push("/admin")}
+        >
           Administración
         </Button>
       )}
       <Button
         variant="quiet"
         icon="log-out"
-        onPress={() => void signOut().catch((error) => toast(error.message, true))}
+        onPress={() =>
+          void signOut().catch((error) => toast(error.message, true))
+        }
       >
         Cerrar sesión
       </Button>

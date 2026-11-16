@@ -32,4 +32,5 @@ public class PlanResponseDto {
     private ParticipantRole currentUserRole;
     private ParticipationStatus currentUserParticipationStatus;
     private int agreementVersion;
+    private AgreementDto agreement;
 }

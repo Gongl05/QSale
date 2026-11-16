@@ -1,64 +1,76 @@
-import { useState } from 'react';
-import { Image, View, Pressable } from 'react-native';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import Feather from '@expo/vector-icons/Feather';
-import { safeReturnPath, signInSchema, signUpSchema, type SignUpInput } from '@qsale/contracts';
-import { useSession } from './session';
-import { Button, Field, Heading, Loading, Screen, Text, colors, styles } from './ui';
+import { useState } from "react";
+import { Image, View, Pressable } from "react-native";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Feather from "@expo/vector-icons/Feather";
+import {
+  safeReturnPath,
+  signInSchema,
+  signUpSchema,
+  type SignUpInput,
+} from "@qsale/contracts";
+import { useSession } from "./session";
+import { Button, Field, Heading, Loading, Screen, Text, useUI } from "./ui";
 
-export default function AuthScreen({ registering = false }: { registering?: boolean }) {
+export default function AuthScreen({
+  registering = false,
+}: {
+  registering?: boolean;
+}) {
+  const { colors, styles, dark } = useUI();
   const router = useRouter();
   const params = useLocalSearchParams<{ returnTo?: string }>();
-  const returnTo = safeReturnPath(params.returnTo, '/');
+  const returnTo = safeReturnPath(params.returnTo, "/");
   const { user, loading, signIn, signUp } = useSession();
   const [visible, setVisible] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const {
     control,
     handleSubmit,
     formState: { isSubmitting },
   } = useForm<SignUpInput>({
-    mode: 'onTouched',
+    mode: "onTouched",
     resolver: zodResolver(registering ? signUpSchema : signInSchema) as never,
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: { name: "", email: "", password: "" },
   });
   if (loading) return <Loading />;
-  if (user) return <Redirect href={returnTo as '/'} />;
+  if (user) return <Redirect href={returnTo as "/"} />;
   return (
     <Screen safeTop>
       <View
         style={{
-          backgroundColor: colors.cream,
-          marginHorizontal: -22,
-          marginTop: -22,
-          padding: 28,
-          gap: 20,
+          gap: 32,
+          maxWidth: 480,
+          width: "100%",
+          alignSelf: "center",
+          paddingTop: 24,
         }}
       >
         <View style={styles.row}>
-          <Image source={require('../assets/qsale.png')} style={{ width: 45, height: 45 }} />
-          <Text style={{ fontSize: 30, fontFamily: 'Manrope_800ExtraBold' }}>QSale.</Text>
+          <Image
+            source={require("../assets/qsale.png")}
+            accessibilityLabel="Quesale"
+            style={{ width: 48, height: 48 }}
+          />
+          <Text style={[styles.heading, { fontSize: 26 }]}>Quesale</Text>
         </View>
-        <Text style={[styles.title, { fontSize: 33, lineHeight: 40 }]}>
-          Ese “hay que hacer algo” sí va a salir.
-        </Text>
-      </View>
-      <View style={{ paddingTop: 14, gap: 20 }}>
         <Heading
-          title={registering ? 'Reúne a tu gente' : 'Qué bueno verte por aquí'}
+          title={registering ? "Crear cuenta" : "Iniciar sesión"}
           description={
             registering
-              ? 'Crea tu cuenta y hagan que ese plan salga.'
-              : 'Entra y descubre qué está tomando forma.'
+              ? "Elijan una fecha, acuerden un lugar y confirmen quién va."
+              : "Vuelve a los planes de tu grupo."
           }
         />
         {registering && (
           <Controller
             control={control}
             name="name"
-            render={({ field: { value, onChange, onBlur }, fieldState: { error } }) => (
+            render={({
+              field: { value, onChange, onBlur },
+              fieldState: { error },
+            }) => (
               <Field
                 label="Tu nombre"
                 value={value}
@@ -73,7 +85,10 @@ export default function AuthScreen({ registering = false }: { registering?: bool
         <Controller
           control={control}
           name="email"
-          render={({ field: { value, onChange, onBlur }, fieldState: { error } }) => (
+          render={({
+            field: { value, onChange, onBlur },
+            fieldState: { error },
+          }) => (
             <Field
               label="Correo electrónico"
               value={value}
@@ -90,18 +105,21 @@ export default function AuthScreen({ registering = false }: { registering?: bool
           <Controller
             control={control}
             name="password"
-            render={({ field: { value, onChange, onBlur }, fieldState: { error } }) => (
+            render={({
+              field: { value, onChange, onBlur },
+              fieldState: { error },
+            }) => (
               <Field
                 label="Contraseña"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
                 secureTextEntry={!visible}
-                autoComplete={registering ? 'new-password' : 'current-password'}
+                autoComplete={registering ? "new-password" : "current-password"}
                 error={error?.message}
                 hint={
                   registering
-                    ? 'Al menos 8 caracteres, una mayúscula, una minúscula y un número.'
+                    ? "Al menos 8 caracteres, una mayúscula, una minúscula y un número."
                     : undefined
                 }
                 style={{ paddingRight: 46 }}
@@ -110,11 +128,25 @@ export default function AuthScreen({ registering = false }: { registering?: bool
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            accessibilityLabel={
+              visible ? "Ocultar contraseña" : "Mostrar contraseña"
+            }
             onPress={() => setVisible(!visible)}
-            style={{ position: 'absolute', right: 5, top: 27, padding: 12 }}
+            style={{
+              position: "absolute",
+              right: 0,
+              top: 29,
+              minWidth: 48,
+              minHeight: 48,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            <Feather name={visible ? 'eye-off' : 'eye'} size={20} color={colors.muted} />
+            <Feather
+              name={visible ? "eye-off" : "eye"}
+              size={20}
+              color={colors.muted}
+            />
           </Pressable>
         </View>
         {Boolean(error) && (
@@ -125,24 +157,35 @@ export default function AuthScreen({ registering = false }: { registering?: bool
         <Button
           busy={isSubmitting}
           onPress={handleSubmit(async (values) => {
-            setError('');
+            setError("");
             try {
               await (registering ? signUp(values) : signIn(values));
-              router.replace(returnTo as '/');
+              router.replace(returnTo as "/");
             } catch (error) {
               setError((error as Error).message);
             }
           })}
         >
-          {registering ? 'Crear mi cuenta' : 'Entrar a QSale'}
+          {registering ? "Crear mi cuenta" : "Entrar a Quesale"}
         </Button>
+        {!registering && (
+          <Button
+            variant="quiet"
+            onPress={() => router.push("/forgot-password")}
+          >
+            Olvidé mi contraseña
+          </Button>
+        )}
         <Button
           variant="quiet"
           onPress={() =>
-            router.replace({ pathname: registering ? '/login' : '/register', params: { returnTo } })
+            router.replace({
+              pathname: registering ? "/login" : "/register",
+              params: { returnTo },
+            })
           }
         >
-          {registering ? 'Ya tengo cuenta' : 'Quiero crear mi cuenta'}
+          {registering ? "Ya tengo cuenta" : "Quiero crear mi cuenta"}
         </Button>
       </View>
     </Screen>

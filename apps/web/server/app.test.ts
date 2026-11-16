@@ -104,3 +104,27 @@ it('can finish logout when there is no remaining refresh cookie', async () => {
   expect(result.status).toBe(204);
   expect(upstream).not.toHaveBeenCalled();
 });
+
+it('proxies password recovery without creating a session and clears the old cookie after reset', async () => {
+  const { app, upstream } = setup();
+  upstream.mockResolvedValueOnce(new Response(null, { status: 202 }));
+  const requested = await request(app).post('/session/password-reset-request').set('Origin', origin)
+    .send({ email: 'ana@example.test' });
+  expect(requested.status).toBe(202);
+  expect(requested.headers['set-cookie']).toBeUndefined();
+  expect(upstream.mock.calls[0]![0]).toBe('https://backend.test/api/v1/auth/password-reset/request');
+  upstream.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  const confirmed = await request(app).post('/session/password-reset-confirm').set('Origin', origin)
+    .send({ token: 'a'.repeat(43), password: 'NewPassword2026' });
+  expect(confirmed.status).toBe(204);
+  expect(confirmed.headers['set-cookie'][0]).toContain('Expires=Thu, 01 Jan 1970');
+  expect(upstream.mock.calls[1]![0]).toBe('https://backend.test/api/v1/auth/password-reset/confirm');
+});
+
+it('rejects cross-origin password recovery before forwarding it', async () => {
+  const { app, upstream } = setup();
+  const result = await request(app).post('/session/password-reset-request')
+    .set('Origin', 'https://other.test').send({ email: 'ana@example.test' });
+  expect(result.status).toBe(403);
+  expect(upstream).not.toHaveBeenCalled();
+});

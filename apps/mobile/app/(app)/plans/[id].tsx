@@ -1,12 +1,12 @@
-import { PlanOptionCard } from '../../../src/PlanOptionCard';
-import { useState } from 'react';
-import { Share, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Section } from '../../../src/PlanDetailSection';
-import { PlanAttendancePanel } from '../../../src/PlanAttendancePanel';
-import { PlanManagementActions } from '../../../src/PlanManagementActions';
-import { usePlanData } from '../../../src/usePlanData';
-import QRCode from 'react-native-qrcode-svg';
+import { PlanOptionCard } from "../../../src/PlanOptionCard";
+import { useState } from "react";
+import { Share, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Section } from "../../../src/PlanDetailSection";
+import { PlanAttendancePanel } from "../../../src/PlanAttendancePanel";
+import { PlanManagementActions } from "../../../src/PlanManagementActions";
+import { usePlanData } from "../../../src/usePlanData";
+import QRCode from "react-native-qrcode-svg";
 import {
   canContribute,
   canRespond,
@@ -17,10 +17,13 @@ import {
   formatMoney,
   planStatusLabels,
   type PlanOption,
-} from '@qsale/contracts';
-import { DateRecommendations, ReschedulePanel } from '../../../src/Coordination';
-import { api, useSession } from '../../../src/session';
-import { MapView, type MapPoint } from '../../../src/Map';
+} from "@qsale/contracts";
+import {
+  DateRecommendations,
+  ReschedulePanel,
+} from "../../../src/Coordination";
+import { api, useSession } from "../../../src/session";
+import { MapView, type MapPoint } from "../../../src/Map";
 import {
   Badge,
   Button,
@@ -30,15 +33,18 @@ import {
   Heading,
   Loading,
   Screen,
+  Sheet,
   Tabs,
   Text,
   confirmAction,
-  styles,
   useAction,
   useToast,
-} from '../../../src/ui';
-import { AvailabilityForm } from '../../../src/AvailabilityForm';
+  useUI,
+} from "../../../src/ui";
+import { AvailabilityList } from "../../../src/AvailabilityList";
+import { AvailabilityForm } from "../../../src/AvailabilityForm";
 export default function PlanDetail() {
+  const { colors, styles, dark } = useUI();
   const { id } = useLocalSearchParams<{
     id: string;
   }>();
@@ -46,9 +52,9 @@ export default function PlanDetail() {
   const router = useRouter();
   const { user } = useSession();
   const toast = useToast();
-  const [tab, setTab] = useState('proposals'),
+  const [tab, setTab] = useState("proposals"),
     [sharing, setSharing] = useState(false),
-    [email, setEmail] = useState('');
+    [email, setEmail] = useState("");
   const valid = Number.isSafeInteger(planId) && planId > 0;
   const {
     query,
@@ -60,21 +66,28 @@ export default function PlanDetail() {
     geography,
     refresh,
   } = usePlanData(planId);
-  const accept = useAction(() => api.acceptInvitation(planId), 'Ya eres parte del grupo.');
+  const accept = useAction(
+    () => api.acceptInvitation(planId),
+    "Ya eres parte del grupo.",
+  );
   const vote = useAction(
-    (option: PlanOption) => (option.hasVoted ? api.removeVote(option.id) : api.vote(option.id)),
-    'Voto actualizado.',
+    (option: PlanOption) =>
+      option.hasVoted ? api.removeVote(option.id) : api.vote(option.id),
+    "Voto actualizado.",
   );
   const invite = useAction(
     (email: string) => api.invite(planId, email),
-    'Invitación enviada.',
-    () => setEmail(''),
+    "Invitación enviada.",
+    () => setEmail(""),
   );
-  const change = useAction((action: () => Promise<unknown>) => action(), 'Cambio realizado.');
+  const change = useAction(
+    (action: () => Promise<unknown>) => action(),
+    "Cambio realizado.",
+  );
   if (!valid)
     return (
       <Screen>
-        <ErrorState error={new Error('El enlace del plan no es válido.')} />
+        <ErrorState error={new Error("El enlace del plan no es válido.")} />
       </Screen>
     );
   if (query.isPending) return <Loading />;
@@ -90,43 +103,68 @@ export default function PlanDetail() {
     respondable = canRespond(plan),
     mine = commitments.data?.find((item) => item.userId === user!.id);
   const link =
-    (process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, '') ?? 'qsale:/') + '/join/' + plan.inviteCode;
+    (process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "") ?? "qsale:/") +
+    "/join/" +
+    plan.inviteCode;
   const request = (
     title: string,
     description: string,
     action: () => Promise<unknown>,
     leave = false,
   ) =>
-    confirmAction(title, description, () =>
-      change.mutate(action, {
-        onSuccess: () => {
-          if (leave) router.dismissTo('/');
-        },
-      }),
+    confirmAction(
+      title,
+      description,
+      () =>
+        change.mutate(action, {
+          onSuccess: () => {
+            if (leave) router.dismissTo("/");
+          },
+        }),
+      title.includes("Eliminar")
+        ? "Eliminar"
+        : title.includes("Cancelar")
+          ? "Cancelar plan"
+          : title.includes("Reabrir")
+            ? "Reabrir plan"
+            : title.includes("Salir")
+              ? "Salir del plan"
+              : title.includes("Retirar")
+                ? "Retirar del grupo"
+                : "Confirmar plan",
+      /Eliminar|Cancelar|Reabrir|Retirar|Salir/.test(title),
     );
   const points: MapPoint[] = (options.data ?? [])
-    .filter((option) => option.type === 'PLACE' && option.location)
+    .filter((option) => option.type === "PLACE" && option.location)
     .map((option) => ({ ...option.location!, label: option.label }));
   if (geography.data?.midpoint)
     points.push({
       ...geography.data.midpoint,
-      label: 'Punto medio del grupo',
+      label: "Punto medio del grupo",
       midpoint: true,
     });
   return (
     <Screen refreshing={query.isRefetching} onRefresh={() => void refresh()}>
       <Heading title={plan.name} description={plan.description ?? undefined} />
       <View style={styles.row}>
-        <Badge good={plan.status === 'CLOSED'}>{planStatusLabels[plan.status]}</Badge>
+        <Badge good={plan.status === "CLOSED"}>
+          {planStatusLabels[plan.status]}
+        </Badge>
         <Text style={styles.muted}>Por {plan.creatorName}</Text>
       </View>
       <Text style={styles.subtitle}>
-        {formatDate(plan.tentativeStartDate)} · {formatMoney(plan.budget)} estimados · Mínimo{' '}
-        {plan.minParticipants}
+        {plan.status === "CLOSED"
+          ? "Acuerdo confirmado"
+          : formatDate(plan.tentativeStartDate)}{" "}
+        · {formatMoney(plan.budget)} estimados · Mínimo {plan.minParticipants}
       </Text>
       <View style={styles.row}>
-        {plan.status === 'OPEN' && (
-          <Button variant="secondary" icon="share-2" onPress={() => setSharing(!sharing)}>
+        {plan.status === "OPEN" && (
+          <Button
+            variant="secondary"
+            icon="share-2"
+            onPress={() => setSharing(!sharing)}
+          >
             Compartir
           </Button>
         )}
@@ -134,78 +172,104 @@ export default function PlanDetail() {
           <Button
             variant="secondary"
             icon="edit-2"
-            onPress={() => router.push(('/plans/' + planId + '/edit') as '/plans/[id]/edit')}
+            onPress={() =>
+              router.push(("/plans/" + planId + "/edit") as "/plans/[id]/edit")
+            }
           >
             Editar
           </Button>
         )}
       </View>
       {sharing && (
-        <View style={[styles.surface, { alignItems: 'center' }]}>
-          <Text style={styles.subheading}>El plan empieza por invitar</Text>
-          <QRCode value={link} size={180} />
-          <Text selectable style={styles.code}>
-            {plan.inviteCode}
+        <Sheet title="Compartir invitación" onClose={() => setSharing(false)}>
+          <Text style={styles.subtitle}>
+            Comparte el enlace o el código. Cada persona necesitará una cuenta
+            para unirse.
           </Text>
-          <Text selectable style={styles.muted}>
+          <View style={{ alignItems: "center", gap: 16 }}>
+            <View
+              accessibilityLabel="Código QR de invitación"
+              style={{ backgroundColor: "#fff", padding: 16, borderRadius: 12 }}
+            >
+              <QRCode value={link} size={180} />
+            </View>
+            <Text selectable style={styles.code}>
+              {plan.inviteCode}
+            </Text>
+          </View>
+          <Text selectable style={styles.link}>
             {link}
           </Text>
           <Button
             icon="share-2"
             onPress={() =>
               void Share.share({
-                message: `Únete a “${plan.name}” en QSale. Código: ${plan.inviteCode}\n${link}`,
-              }).catch(() => toast('No pudimos abrir las opciones para compartir.', true))
+                message: `Únete a “${plan.name}” en Quesale. Código: ${plan.inviteCode}\n${link}`,
+              }).catch(() =>
+                toast("No pudimos abrir las opciones para compartir.", true),
+              )
             }
           >
             Compartir invitación
           </Button>
-        </View>
+        </Sheet>
       )}
-      {plan.currentUserParticipationStatus === 'INVITED' && plan.status === 'OPEN' && (
-        <View style={styles.note}>
-          <Text style={styles.subheading}>Te invitaron a este plan</Text>
-          <Text style={[styles.subtitle, { marginVertical: 12 }]}>
-            Únete para proponer, votar y responder si vas.
+      {plan.currentUserParticipationStatus === "INVITED" &&
+        plan.status === "OPEN" && (
+          <View style={styles.note}>
+            <Text style={styles.subheading}>Te invitaron a este plan</Text>
+            <Text style={[styles.subtitle, { marginVertical: 12 }]}>
+              Únete para proponer, votar y responder si vas.
+            </Text>
+            <Button
+              busy={accept.isPending}
+              onPress={() => accept.mutate(undefined)}
+            >
+              Aceptar invitación
+            </Button>
+          </View>
+        )}
+      {plan.status === "CLOSED" && (
+        <View style={[styles.surface, { borderColor: colors.green }]}>
+          <Text style={[styles.label, { color: colors.green }]}>
+            Acuerdo vigente
           </Text>
-          <Button busy={accept.isPending} onPress={() => accept.mutate(undefined)}>
-            Aceptar invitación
-          </Button>
-        </View>
-      )}
-      {plan.status === 'CLOSED' && (
-        <View style={styles.surface}>
-          <Text style={styles.heading}>Acuerdo vigente</Text>
           {options.data
             ?.filter((option) => option.selected)
             .map((option) => (
               <Text style={styles.subheading} key={option.id}>
-                {option.type === 'DATE' ? formatOptionDate(option) : option.label}
+                {option.type === "DATE"
+                  ? formatOptionDate(option)
+                  : option.label}
               </Text>
             ))}
-          <Text>
-            Si alguien no puede asistir, el día y el lugar se conservan. Solo quien organiza puede
-            aplicar una reprogramación aprobada o reabrir el plan.
+          <Text style={styles.muted}>
+            El día y el lugar siguen vigentes aunque cambie la asistencia.
           </Text>
         </View>
       )}
-      <PlanAttendancePanel key={plan.id} plan={plan} feasibility={feasibility} mine={mine} />
+      <PlanAttendancePanel
+        key={plan.id}
+        plan={plan}
+        feasibility={feasibility}
+        mine={mine}
+      />
       <Tabs
         items={
           [
-            ['proposals', 'Propuestas'],
-            ['group', 'El grupo'],
-            ['availability', 'Disponibilidad'],
-            ['map', 'Mapa'],
+            ["proposals", "Propuestas"],
+            ["group", "El grupo"],
+            ["availability", "Disponibilidad"],
+            ["map", "Mapa"],
           ] as const
         }
         value={tab}
         onChange={setTab}
       />
-      {tab === 'proposals' && (
+      {tab === "proposals" && (
         <>
           <Heading
-            title="¿Cuándo y dónde?"
+            title="Propuestas"
             description="Elijan juntos. Puedes votar por más de una propuesta."
           />
           {contribute && (
@@ -213,11 +277,20 @@ export default function PlanDetail() {
               variant="secondary"
               icon="plus"
               onPress={() =>
-                router.push(('/plans/' + planId + '/proposal') as '/plans/[id]/proposal')
+                router.push(
+                  ("/plans/" + planId + "/proposal") as "/plans/[id]/proposal",
+                )
               }
             >
               Proponer
             </Button>
+          )}
+          {geography.data && (
+            <Text style={styles.muted}>
+              Ubicaciones de referencia guardadas:{" "}
+              {geography.data.locatedParticipants} de{" "}
+              {geography.data.joinedParticipants} integrantes
+            </Text>
           )}
           <ReschedulePanel plan={plan} options={options.data ?? []} />
           <Section query={options}>
@@ -236,7 +309,7 @@ export default function PlanDetail() {
                   />
                 ))
               ) : (
-                <EmptyState title="Las mejores ideas empiezan con alguien">
+                <EmptyState title="Todavía no hay propuestas">
                   Propongan una fecha o un lugar para que el grupo vote.
                 </EmptyState>
               )
@@ -244,10 +317,10 @@ export default function PlanDetail() {
           </Section>
         </>
       )}
-      {tab === 'group' && (
+      {tab === "group" && (
         <>
           <Heading
-            title="La gente que hace el plan"
+            title="El grupo"
             description="Unirse al grupo y confirmar asistencia son pasos distintos."
           />
           {manage && (
@@ -260,12 +333,16 @@ export default function PlanDetail() {
                 onChangeText={setEmail}
                 maxLength={150}
               />
+              <Text style={styles.muted}>
+                Este correo debe tener cuenta en Quesale. Si aún no la tiene,
+                comparte el enlace del plan.
+              </Text>
               <Button
                 busy={invite.isPending}
                 icon="user-plus"
                 onPress={() => {
                   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-                    toast('Escribe un correo válido.', true);
+                    toast("Escribe un correo válido.", true);
                     return;
                   }
                   invite.mutate(email.trim());
@@ -283,8 +360,8 @@ export default function PlanDetail() {
                     <View style={styles.avatar}>
                       <Text
                         style={{
-                          fontFamily: 'Manrope_800ExtraBold',
-                          color: '#8B431D',
+                          fontFamily: "Manrope_600SemiBold",
+                          color: colors.link,
                         }}
                       >
                         {item.userName.slice(0, 1).toUpperCase()}
@@ -293,34 +370,43 @@ export default function PlanDetail() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.subheading}>{item.userName}</Text>
                       <Text style={styles.muted}>
-                        {item.role === 'ORGANIZER'
-                          ? 'Organiza el plan'
-                          : item.status === 'INVITED'
-                            ? 'Invitación pendiente'
-                            : 'Parte del grupo'}
+                        {item.role === "ORGANIZER"
+                          ? "Organiza el plan"
+                          : item.status === "INVITED"
+                            ? "Invitación pendiente"
+                            : "Parte del grupo"}
                       </Text>
                     </View>
                   </View>
                   <Text style={styles.subtitle}>
-                    {item.status === 'INVITED'
-                      ? 'Aún no se une'
-                      : commitments.data?.find((response) => response.userId === item.userId)
+                    {item.status === "INVITED"
+                      ? "Aún no se une"
+                      : commitments.data?.find(
+                            (response) => response.userId === item.userId,
+                          )
                         ? commitmentLabels[
-                            commitments.data.find((response) => response.userId === item.userId)!
-                              .status
+                            commitments.data.find(
+                              (response) => response.userId === item.userId,
+                            )!.status
                           ]
-                        : 'Sin respuesta'}
+                        : "Sin respuesta"}
                   </Text>
                   {Boolean(
-                    commitments.data?.find((response) => response.userId === item.userId)?.note,
+                    commitments.data?.find(
+                      (response) => response.userId === item.userId,
+                    )?.note,
                   ) && (
                     <Text style={styles.muted}>
-                      Nota:{' '}
-                      {commitments.data?.find((response) => response.userId === item.userId)?.note}
+                      Nota:{" "}
+                      {
+                        commitments.data?.find(
+                          (response) => response.userId === item.userId,
+                        )?.note
+                      }
                     </Text>
                   )}
-                  {plan.status === 'OPEN' &&
-                    item.role !== 'ORGANIZER' &&
+                  {plan.status === "OPEN" &&
+                    item.role !== "ORGANIZER" &&
                     (manage || item.userId === user!.id) && (
                       <Button
                         variant="quiet"
@@ -328,15 +414,17 @@ export default function PlanDetail() {
                         onPress={() =>
                           request(
                             item.userId === user!.id
-                              ? '¿Salir de este plan?'
-                              : '¿Retirar del grupo?',
-                            'Se eliminará su participación y sus respuestas.',
+                              ? "¿Salir de este plan?"
+                              : "¿Retirar del grupo?",
+                            "Se eliminará su participación y sus respuestas.",
                             () => api.removeParticipant(planId, item.userId),
                             item.userId === user!.id,
                           )
                         }
                       >
-                        {item.userId === user!.id ? 'Salir del plan' : 'Retirar del grupo'}
+                        {item.userId === user!.id
+                          ? "Salir del plan"
+                          : "Retirar del grupo"}
                       </Button>
                     )}
                 </View>
@@ -344,14 +432,17 @@ export default function PlanDetail() {
             }
           </Section>
           {commitments.isError && (
-            <ErrorState error={commitments.error} retry={() => void commitments.refetch()} />
+            <ErrorState
+              error={commitments.error}
+              retry={() => void commitments.refetch()}
+            />
           )}
         </>
       )}
-      {tab === 'availability' && (
+      {tab === "availability" && (
         <>
           <Heading
-            title="Encuentren un momento en común"
+            title="Disponibilidad"
             description="La disponibilidad ayuda a la viabilidad; no sustituye tu confirmación de asistencia."
           />
           {respondable && <AvailabilityForm planId={planId} />}
@@ -359,34 +450,16 @@ export default function PlanDetail() {
           <Section query={availability}>
             {(items) =>
               items.length ? (
-                items.map((item) => (
-                  <View style={styles.surface} key={item.id}>
-                    <Text style={styles.subheading}>{item.userName}</Text>
-                    <Text>
-                      {formatDate(item.availableDate)} ·{' '}
-                      {item.startTime
-                        ? item.startTime.slice(0, 5) + '–' + item.endTime?.slice(0, 5)
-                        : 'Todo el día'}
-                    </Text>
-                    {respondable && item.userId === user!.id && (
-                      <Button
-                        variant="quiet"
-                        disabled={change.isPending}
-                        onPress={() =>
-                          request(
-                            '¿Eliminar disponibilidad?',
-                            'Este horario dejará de contar en la viabilidad.',
-                            () => api.deleteAvailability(planId, item.id),
-                          )
-                        }
-                      >
-                        Eliminar mi disponibilidad
-                      </Button>
-                    )}
-                  </View>
-                ))
+                <AvailabilityList
+                  items={items}
+                  planId={planId}
+                  userId={user!.id}
+                  respondable={respondable}
+                  busy={change.isPending}
+                  request={request}
+                />
               ) : (
-                <EmptyState title="Un espacio en la agenda">
+                <EmptyState title="Sin disponibilidad registrada">
                   Comparte cuándo puedes y ayuden al grupo a decidir.
                 </EmptyState>
               )
@@ -394,27 +467,31 @@ export default function PlanDetail() {
           </Section>
         </>
       )}
-      {tab === 'map' && (
+      {tab === "map" && (
         <>
           <Heading
-            title="Un punto para encontrarse"
+            title="Lugares del plan"
             description="El punto medio aparece con las ubicaciones de al menos dos integrantes. Orienta geográficamente; no calcula una ruta de encuentro."
           />
           <Section query={geography}>
             {(geo) => (
               <>
                 <Text style={styles.subtitle}>
-                  {geo.locatedParticipants} de {geo.joinedParticipants} integrantes tienen
-                  ubicación.
+                  {geo.locatedParticipants} de {geo.joinedParticipants}{" "}
+                  integrantes tienen ubicación.
                 </Text>
                 {points.length ? (
                   <MapView points={points} />
                 ) : (
-                  <EmptyState title="El mapa espera sus ideas">
-                    Añadan ubicaciones de referencia o propongan un lugar para empezar.
+                  <EmptyState title="Todavía no hay lugares">
+                    Añadan ubicaciones de referencia o propongan un lugar para
+                    empezar.
                   </EmptyState>
                 )}
-                <Button variant="secondary" onPress={() => router.push('/profile')}>
+                <Button
+                  variant="secondary"
+                  onPress={() => router.push("/profile")}
+                >
                   Actualizar mi ubicación
                 </Button>
               </>

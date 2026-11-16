@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { locationSchema, type Location } from '@qsale/contracts';
-import { api, useSession } from '../session';
-import { Button, Field, PageHeading, useToast } from '../ui';
-import { LocationPicker } from '../Map';
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { locationSchema, type Location } from "@qsale/contracts";
+import { api, useSession } from "../session";
+import { Button, Field, PageHeading, useToast } from "../ui";
+import { LocationPicker } from "../Map";
+import { useUnsavedChanges } from "../useUnsavedChanges";
 
 export default function Profile() {
   const { user, updateUser } = useSession();
@@ -11,13 +12,22 @@ export default function Profile() {
   const [location, setLocation] = useState<Location | null>(user!.location);
   const [locationValid, setLocationValid] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState({
+    name: user!.name,
+    location: user!.location,
+  });
+  const guard = useUnsavedChanges(
+    name !== saved.name ||
+      JSON.stringify(location) !== JSON.stringify(saved.location) ||
+      !locationValid,
+  );
   const toast = useToast();
   const cache = useQueryClient();
   return (
     <div className="form-page">
       <PageHeading
-        title="Tu punto de partida"
+        title="Mi perfil"
         description="Tu grupo te reconoce por tu nombre. Tu ubicación ayuda a encontrar un lugar más conveniente."
       />
       <form
@@ -25,17 +35,19 @@ export default function Profile() {
         noValidate
         onSubmit={async (event) => {
           event.preventDefault();
-          setError('');
+          setError("");
           if (!locationValid) {
-            setError('Completa ambas coordenadas válidas antes de guardar.');
+            setError("Completa ambas coordenadas válidas antes de guardar.");
             return;
           }
           if (name.trim().length < 2 || name.trim().length > 100) {
-            setError('Tu nombre debe tener entre 2 y 100 caracteres.');
+            setError("Tu nombre debe tener entre 2 y 100 caracteres.");
             return;
           }
           if (location && !locationSchema.safeParse(location).success) {
-            setError('Revisa las coordenadas: latitud de −90 a 90, longitud de −180 a 180.');
+            setError(
+              "Revisa las coordenadas: latitud de −90 a 90, longitud de −180 a 180.",
+            );
             return;
           }
           setBusy(true);
@@ -45,8 +57,11 @@ export default function Profile() {
               ...(location ? { location } : { removeLocation: true }),
             });
             updateUser(updated);
+            setName(updated.name);
+            setLocation(updated.location);
+            setSaved({ name: updated.name, location: updated.location });
             await cache.invalidateQueries();
-            toast('Tu perfil está actualizado.');
+            toast("Tu perfil está actualizado.");
           } catch (error) {
             setError((error as Error).message);
           } finally {
@@ -69,8 +84,9 @@ export default function Profile() {
         />
         <h2>Tu ubicación de referencia</h2>
         <p>
-          Usa un punto cercano, como tu distrito o una avenida. No necesitas compartir tu casa. El
-          grupo verá el punto medio y las estimaciones agregadas.
+          Usa un punto cercano, como tu distrito o una avenida. No necesitas
+          compartir tu casa. El grupo verá el punto medio y las estimaciones
+          agregadas.
         </p>
         <LocationPicker
           value={location}
@@ -88,6 +104,7 @@ export default function Profile() {
           </Button>
         </div>
       </form>
+      {guard.dialog}
     </div>
   );
 }

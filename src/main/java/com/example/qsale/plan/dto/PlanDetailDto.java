@@ -14,4 +14,5 @@ public class PlanDetailDto extends PlanResponseDto {
     private String inviteCode;
     private Long creatorId;
     private LocalDateTime closedAt;
+    private AgreementDto closingPreview;
 }

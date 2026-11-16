@@ -14,4 +14,6 @@ public interface PlanOptionRepository extends JpaRepository<PlanOption, Long> {
     List<PlanOption> findByPlanIdAndType(Long planId, OptionType type);
 
     Optional<PlanOption> findByIdAndPlanId(Long id, Long planId);
+
+    List<PlanOption> findByPlanIdInAndSelectedTrue(List<Long> planIds);
 }

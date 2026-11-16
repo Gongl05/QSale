@@ -37,6 +37,25 @@ export class ApiError extends Error {
   }
 }
 
+export function createPasswordRecoveryClient(baseURL: string, mode: 'api' | 'session' = 'api') {
+  const http = axios.create({ baseURL, timeout: 12_000 });
+  async function send(kind: 'request' | 'confirm', body: object) {
+    const endpoint = mode === 'session' ? `/password-reset-${kind}` : `/auth/password-reset/${kind}`;
+    try {
+      await http.post(endpoint, body);
+    } catch (error) {
+      const normalized = toApiError(error);
+      if (kind === 'confirm' && normalized.status === 400)
+        throw new ApiError('El enlace venció o ya se usó. Solicita uno nuevo y revisa la contraseña.', 400);
+      throw normalized;
+    }
+  }
+  return {
+    request: (email: string) => send('request', { email: email.trim() }),
+    confirm: (token: string, password: string) => send('confirm', { token, password }),
+  };
+}
+
 export function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
   if (!axios.isAxiosError(error))
@@ -211,7 +230,7 @@ export function createQSaleApi(http: AxiosInstance) {
       read<Participant[]>(`/plans/${id}/participants`, undefined, signal),
     invite: (id: number, email: string) =>
       contextual(send<Participant>('post', `/plans/${id}/participants`, { email }), {
-        404: 'Ese correo aún no tiene cuenta en QSale. Comparte el enlace o código del plan para que se registre y se una.',
+        404: 'Ese correo aún no tiene cuenta en Quesale. Comparte el enlace o código del plan para que se registre y se una.',
         409: 'Esa persona ya pertenece al grupo o tiene una invitación pendiente. Revisa El grupo.',
       }),
     acceptInvitation: (id: number) => send<Participant>('patch', `/plans/${id}/participants/me`),
@@ -255,7 +274,7 @@ export function createQSaleApi(http: AxiosInstance) {
     users: (signal?: AbortSignal) => read<User[]>('/admin/users', undefined, signal),
     updateRole: (id: number, role: User['role']) =>
       contextual(send<User>('patch', `/admin/users/${id}/role`, { role }), {
-        400: 'QSale debe conservar al menos un administrador. Asigna ese acceso a otra persona antes de retirarlo.',
+        400: 'Quesale debe conservar al menos un administrador. Asigna ese acceso a otra persona antes de retirarlo.',
       }),
   };
 }

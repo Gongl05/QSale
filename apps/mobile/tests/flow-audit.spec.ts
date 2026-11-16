@@ -26,8 +26,9 @@ test('native proposal returns to the plan and cancellation prevents further cont
     await page.getByRole('button', { name: 'Crear plan', exact: true }).click();
     await expect(page).toHaveURL(/\/plans\/\d+$/);
     await page.getByRole('button', { name: 'Proponer', exact: true }).click();
-    await page.getByRole('tab', { name: 'Lugar', exact: true }).click();
+    await page.getByRole('radio', { name: 'Lugar', exact: true }).click();
     await page.getByLabel('Título de la propuesta').fill('Parque de prueba');
+    await page.getByRole('button', { name: 'Ingresar coordenadas (avanzado)', exact: true }).click();
     await page.getByLabel('Latitud', { exact: true }).fill('-12.12');
     await page.getByLabel('Longitud', { exact: true }).fill('-77.03');
     await page.getByRole('button', { name: 'Publicar propuesta', exact: true }).click();
@@ -36,7 +37,7 @@ test('native proposal returns to the plan and cancellation prevents further cont
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Cancelar plan', exact: true }).click();
     await expect(
-      page.getByText('El plan se canceló. Puedes consultar lo que organizaron.', { exact: true }),
+      page.getByText('Plan cancelado; disponible para consulta.', { exact: true }),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Proponer', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Sí, voy', exact: true })).toHaveCount(0);
@@ -47,7 +48,7 @@ test('native proposal returns to the plan and cancellation prevents further cont
     if (await login.isVisible()) {
       await login.fill(email);
       await page.getByLabel('Contraseña', { exact: true }).fill('NativeFlow2026');
-      await page.getByRole('button', { name: 'Entrar a QSale', exact: true }).click();
+      await page.getByRole('button', { name: 'Entrar a Quesale', exact: true }).click();
     }
     await expect(
       page.getByText('El plan ya está cerrado o cancelado. Puedes consultar sus propuestas.', {

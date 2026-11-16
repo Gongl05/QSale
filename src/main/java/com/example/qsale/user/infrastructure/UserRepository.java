@@ -16,6 +16,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.email = :email")
+    Optional<User> findForUpdateByEmail(@org.springframework.data.repository.query.Param("email") String email);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findForUpdateById(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.role = com.example.qsale.user.domain.Role.ADMIN order by u.id")
     List<User> findAdministratorsForUpdate();
 }

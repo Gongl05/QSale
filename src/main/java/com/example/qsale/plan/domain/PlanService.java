@@ -11,6 +11,7 @@ import com.example.qsale.plan.dto.PlanDetailDto;
 import com.example.qsale.plan.dto.PlanPageResponseDto;
 import com.example.qsale.plan.dto.PlanRequestDto;
 import com.example.qsale.plan.dto.PlanResponseDto;
+import com.example.qsale.plan.dto.AgreementDto;
 import com.example.qsale.plan.events.PlanChangedEvent;
 import com.example.qsale.plan.events.PlanStatusChangedEvent;
 import com.example.qsale.plan.events.PlanUpdatedEvent;
@@ -86,9 +87,14 @@ public class PlanService {
         Map<Long, PlanParticipant> memberships = planIds.isEmpty() ? Map.of()
                 : participantRepository.findByUserIdAndPlanIdIn(user.getId(), planIds).stream()
                 .collect(Collectors.toMap(participant -> participant.getPlan().getId(), Function.identity()));
+        Map<Long, AgreementDto> agreements = planOptionService.selectedAgreements(planIds);
         return new PlanPageResponseDto(
-                plans.map(plan -> withMembership(modelMapper.map(plan, PlanResponseDto.class),
-                        memberships.get(plan.getId()))).getContent(),
+                plans.map(plan -> {
+                    PlanResponseDto response = withMembership(modelMapper.map(plan, PlanResponseDto.class),
+                            memberships.get(plan.getId()));
+                    response.setAgreement(agreements.get(plan.getId()));
+                    return response;
+                }).getContent(),
                 plans.getNumber(), plans.getSize(), plans.getTotalElements(), plans.getTotalPages());
     }
 
@@ -181,7 +187,10 @@ public class PlanService {
         PlanParticipant membership = plan.getParticipants().stream()
                 .filter(participant -> participant.getUser().getId().equals(userId))
                 .findFirst().orElse(null);
-        return withMembership(modelMapper.map(plan, PlanDetailDto.class), membership);
+        PlanDetailDto response = withMembership(modelMapper.map(plan, PlanDetailDto.class), membership);
+        response.setAgreement(planOptionService.selectedAgreements(List.of(plan.getId())).get(plan.getId()));
+        response.setClosingPreview(planOptionService.closingPreview(plan));
+        return response;
     }
 
     private <T extends PlanResponseDto> T withMembership(T response, PlanParticipant membership) {

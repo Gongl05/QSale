@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { ApiError } from '@qsale/api-client';
+import { useState } from "react";
+import { View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { ApiError } from "@qsale/api-client";
 import {
   canContribute,
   dateInputError,
@@ -10,50 +10,70 @@ import {
   locationSchema,
   type Location,
   type OptionInput,
-} from '@qsale/contracts';
-import { DateField } from '../../../../src/DateField';
-import { api } from '../../../../src/session';
-import { LocationPicker } from '../../../../src/Map';
+} from "@qsale/contracts";
+import { useUnsavedChanges } from "../../../../src/useUnsavedChanges";
+import { DateField } from "../../../../src/DateField";
+import { api } from "../../../../src/session";
+import { LocationPicker } from "../../../../src/Map";
 import {
   Button,
   ErrorState,
   Field,
   Heading,
   Loading,
+  Disclosure,
   Screen,
-  Tabs,
+  Choice,
   Text,
-  styles,
   useAction,
-} from '../../../../src/ui';
+  useUI,
+} from "../../../../src/ui";
 export default function Proposal() {
+  const { colors, styles, dark } = useUI();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const planId = Number(id);
   const valid = Number.isSafeInteger(planId) && planId > 0;
   const query = useQuery({
-    queryKey: ['plan', planId],
+    queryKey: ["plan", planId],
     queryFn: ({ signal }) => api.plan(planId, signal),
     enabled: valid,
   });
-  const [type, setType] = useState<'DATE' | 'PLACE'>('DATE'),
-    [label, setLabel] = useState(''),
-    [description, setDescription] = useState(''),
-    [startDay, setStartDay] = useState(''),
-    [startTime, setStartTime] = useState(''),
-    [endDay, setEndDay] = useState(''),
-    [endTime, setEndTime] = useState(''),
+  const [type, setType] = useState<"DATE" | "PLACE">("DATE"),
+    [label, setLabel] = useState(""),
+    [description, setDescription] = useState(""),
+    [startDay, setStartDay] = useState(""),
+    [startTime, setStartTime] = useState(""),
+    [endDay, setEndDay] = useState(""),
+    [endTime, setEndTime] = useState(""),
     [location, setLocation] = useState<Location | null>(null),
-    [error, setError] = useState('');
+    [error, setError] = useState("");
   const action = useAction(
     (input: OptionInput) => api.createOption(Number(id), input),
-    'Propuesta lista para recibir votos.',
-    () => router.dismissTo(('/plans/' + planId) as '/plans/[id]'),
+    "Propuesta lista para recibir votos.",
+    () => {
+      allowNavigation();
+      router.dismissTo(("/plans/" + planId) as "/plans/[id]");
+    },
+  );
+  const allowNavigation = useUnsavedChanges(
+    !action.isPending &&
+      Boolean(
+        label ||
+        description ||
+        startDay ||
+        startTime ||
+        endDay ||
+        endTime ||
+        location,
+      ),
   );
   if (!valid)
     return (
       <Screen>
-        <ErrorState error={new ApiError('El enlace del plan no es válido.', 404)} />
+        <ErrorState
+          error={new ApiError("El enlace del plan no es válido.", 404)}
+        />
       </Screen>
     );
   if (query.isPending) return <Loading />;
@@ -69,14 +89,18 @@ export default function Proposal() {
         <ErrorState
           error={
             new ApiError(
-              query.data.status !== 'OPEN'
-                ? 'El plan ya está cerrado o cancelado. Puedes consultar sus propuestas.'
-                : 'Primero acepta la invitación para proponer.',
+              query.data.status !== "OPEN"
+                ? "El plan ya está cerrado o cancelado. Puedes consultar sus propuestas."
+                : "Primero acepta la invitación para proponer.",
               403,
             )
           }
         />
-        <Button onPress={() => router.dismissTo(('/plans/' + planId) as '/plans/[id]')}>
+        <Button
+          onPress={() =>
+            router.dismissTo(("/plans/" + planId) as "/plans/[id]")
+          }
+        >
           Ver plan
         </Button>
       </Screen>
@@ -84,15 +108,15 @@ export default function Proposal() {
   return (
     <Screen>
       <Heading
-        title="Una nueva propuesta"
+        title="Nueva propuesta"
         description="Pongan opciones sobre la mesa y decidan juntos."
       />
       <View style={styles.surface}>
-        <Tabs
+        <Choice
           items={
             [
-              ['DATE', 'Fecha'],
-              ['PLACE', 'Lugar'],
+              ["DATE", "Fecha"],
+              ["PLACE", "Lugar"],
             ] as const
           }
           value={type}
@@ -110,7 +134,7 @@ export default function Proposal() {
           onChangeText={setDescription}
           maxLength={500}
         />
-        {type === 'DATE' ? (
+        {type === "DATE" ? (
           <>
             <DateField
               label="Día de inicio"
@@ -118,25 +142,32 @@ export default function Proposal() {
               onChange={setStartDay}
               optional={false}
             />
-            <DateField
-              label="Hora de inicio (Lima, opcional)"
-              mode="time"
-              value={startTime}
-              onChange={setStartTime}
-            />
-            <DateField label="Día final (opcional)" value={endDay} onChange={setEndDay} />
-            <DateField
-              label="Hora final (opcional)"
-              mode="time"
-              value={endTime}
-              onChange={setEndTime}
-            />
+            <Disclosure title="Hora y duración (opcional)">
+              <DateField
+                label="Hora de inicio (Lima, opcional)"
+                mode="time"
+                value={startTime}
+                onChange={setStartTime}
+              />
+              <DateField
+                label="Día final (opcional)"
+                value={endDay}
+                onChange={setEndDay}
+              />
+              <DateField
+                label="Hora final (opcional)"
+                mode="time"
+                value={endTime}
+                onChange={setEndTime}
+              />
+            </Disclosure>
           </>
         ) : (
           <LocationPicker value={location} onChange={setLocation} />
         )}
         <Text style={styles.muted}>
-          Puedes proponer más de una alternativa y votar por las que te funcionan.
+          Puedes proponer más de una alternativa y votar por las que te
+          funcionan.
         </Text>
         {Boolean(error) && (
           <Text accessibilityRole="alert" style={styles.error}>
@@ -146,25 +177,33 @@ export default function Proposal() {
         <Button
           busy={action.isPending}
           onPress={() => {
-            setError('');
+            setError("");
             if (label.trim().length < 3) {
-              setError('Escribe un título de al menos 3 caracteres.');
+              setError("Escribe un título de al menos 3 caracteres.");
               return;
             }
-            const dateError = dateInputError(startDay, startTime, endDay, endTime);
-            if (type === 'DATE' && dateError) {
+            const dateError = dateInputError(
+              startDay,
+              startTime,
+              endDay,
+              endTime,
+            );
+            if (type === "DATE" && dateError) {
               setError(dateError);
               return;
             }
-            if (type === 'PLACE' && !locationSchema.safeParse(location).success) {
-              setError('Elige una ubicación válida.');
+            if (
+              type === "PLACE" &&
+              !locationSchema.safeParse(location).success
+            ) {
+              setError("Elige una ubicación válida.");
               return;
             }
             action.mutate({
               type,
               label: label.trim(),
               description,
-              ...(type === 'DATE'
+              ...(type === "DATE"
                 ? dateOptionInput(startDay, startTime, endDay, endTime)
                 : { location: location! }),
             });

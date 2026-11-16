@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
-import { WebView } from 'react-native-webview';
-import * as DeviceLocation from 'expo-location';
-import type { Location } from '@qsale/contracts';
-import { Button, Field, Text, styles } from './ui';
-import { buildMapDocument } from './map-document';
+import { useMemo, useState } from "react";
+import { Linking, Platform, View } from "react-native";
+import { WebView } from "react-native-webview";
+import * as DeviceLocation from "expo-location";
+import type { Location } from "@qsale/contracts";
+import { Button, Field, Text, Disclosure, useUI } from "./ui";
+import { buildMapDocument } from "./map-document";
 
 export interface MapPoint {
   latitude: number;
@@ -21,29 +21,30 @@ export function MapView({
   value?: Location | null;
   onChange?: (location: Location) => void;
 }) {
+  const { colors, styles, dark } = useUI();
   const [error, setError] = useState(false);
   const html = useMemo(
-    () => buildMapDocument(points, value, Boolean(onChange)),
-    [JSON.stringify(points), JSON.stringify(value), Boolean(onChange)],
+    () => buildMapDocument(points, value, Boolean(onChange), colors),
+    [JSON.stringify(points), JSON.stringify(value), Boolean(onChange), colors],
   );
-  if (Platform.OS === 'web')
+  if (Platform.OS === "web")
     return (
       <View style={styles.note}>
         <Text style={styles.muted}>
-          En el teléfono puedes explorar el mapa dentro de QSale. En esta vista previa usa las
-          coordenadas o abre OpenStreetMap.
+          Abre el mapa para consultar el punto elegido. También puedes usar tu
+          ubicación o introducir coordenadas.
         </Text>
         <Button
           variant="quiet"
           onPress={() =>
             void Linking.openURL(
-              'https://www.openstreetmap.org/?mlat=' +
+              "https://www.openstreetmap.org/?mlat=" +
                 (value?.latitude ?? points[0]?.latitude ?? -12.115) +
-                '&mlon=' +
+                "&mlon=" +
                 (value?.longitude ?? points[0]?.longitude ?? -77.025) +
-                '#map=13/' +
+                "#map=13/" +
                 (value?.latitude ?? -12.115) +
-                '/' +
+                "/" +
                 (value?.longitude ?? -77.025),
             )
           }
@@ -66,23 +67,24 @@ export function MapView({
       ) : (
         <View style={styles.map}>
           <WebView
-            originWhitelist={['https://qsale.local', 'about:blank']}
-            source={{ html, baseUrl: 'https://qsale.local' }}
+            originWhitelist={["https://qsale.local", "about:blank"]}
+            source={{ html, baseUrl: "https://qsale.local" }}
             onShouldStartLoadWithRequest={(request) =>
-              request.url === 'about:blank' || request.url.startsWith('https://qsale.local')
+              request.url === "about:blank" ||
+              request.url.startsWith("https://qsale.local")
             }
             onError={() => setError(true)}
             onMessage={(event) => {
               try {
                 const point = JSON.parse(event.nativeEvent.data);
-                if (point.error === 'map-load') {
+                if (point.error === "map-load") {
                   setError(true);
                   return;
                 }
                 if (
-                  typeof point.latitude === 'number' &&
+                  typeof point.latitude === "number" &&
                   Math.abs(point.latitude) <= 90 &&
-                  typeof point.longitude === 'number' &&
+                  typeof point.longitude === "number" &&
                   Math.abs(point.longitude) <= 180
                 )
                   onChange?.(point);
@@ -95,7 +97,9 @@ export function MapView({
           />
         </View>
       )}
-      <Text style={styles.muted}>Mapa © OpenStreetMap · necesita conexión.</Text>
+      <Text style={styles.muted}>
+        Mapa © OpenStreetMap · necesita conexión.
+      </Text>
     </View>
   );
 }
@@ -108,44 +112,50 @@ export function LocationPicker({
   onChange: (location: Location | null) => void;
   onValidityChange?: (valid: boolean) => void;
 }) {
+  const { colors, styles, dark } = useUI();
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
-  const [latitude, setLatitude] = useState(value ? String(value.latitude) : ''),
-    [longitude, setLongitude] = useState(value ? String(value.longitude) : ''),
-    [address, setAddress] = useState(value?.address ?? '');
+    [error, setError] = useState("");
+  const [latitude, setLatitude] = useState(value ? String(value.latitude) : ""),
+    [longitude, setLongitude] = useState(value ? String(value.longitude) : ""),
+    [address, setAddress] = useState(value?.address ?? "");
   const complete = (latitude: string, longitude: string, address: string) => {
     const valid =
-      latitude.trim() !== '' &&
-      longitude.trim() !== '' &&
+      latitude.trim() !== "" &&
+      longitude.trim() !== "" &&
       Number.isFinite(Number(latitude)) &&
       Number.isFinite(Number(longitude)) &&
       Math.abs(Number(latitude)) <= 90 &&
       Math.abs(Number(longitude)) <= 180;
-    onChange(valid ? { latitude: Number(latitude), longitude: Number(longitude), address } : null);
+    onChange(
+      valid
+        ? { latitude: Number(latitude), longitude: Number(longitude), address }
+        : null,
+    );
     onValidityChange?.(valid || (!latitude && !longitude && !address));
   };
   const select = (point: Location) => {
     setLatitude(String(point.latitude));
     setLongitude(String(point.longitude));
-    setAddress(point.address ?? '');
+    setAddress(point.address ?? "");
     onChange(point);
     onValidityChange?.(true);
   };
   return (
-    <View style={{ gap: 15 }}>
+    <View style={{ gap: 16 }}>
       <Button
         variant="secondary"
         icon="crosshair"
         busy={busy}
         onPress={async () => {
-          setError('');
+          setError("");
           setBusy(true);
           let timer: ReturnType<typeof setTimeout> | undefined;
           try {
-            const permission = await DeviceLocation.requestForegroundPermissionsAsync();
+            const permission =
+              await DeviceLocation.requestForegroundPermissionsAsync();
             if (!permission.granted) {
               setError(
-                'No se concedió el permiso de ubicación. Puedes elegir el punto o ingresar sus coordenadas.',
+                "No se concedió el permiso de ubicación. Puedes elegir el punto o ingresar sus coordenadas.",
               );
               return;
             }
@@ -154,13 +164,16 @@ export function LocationPicker({
                 accuracy: DeviceLocation.Accuracy.Balanced,
               }),
               new Promise<never>((_, reject) => {
-                timer = setTimeout(() => reject(new Error('timeout')), 15000);
+                timer = setTimeout(() => reject(new Error("timeout")), 15000);
               }),
             ]);
-            select({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+            select({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
           } catch {
             setError(
-              'No pudimos obtener tu ubicación. Revisa el GPS o ingresa el punto manualmente.',
+              "No pudimos obtener tu ubicación. Revisa el GPS o ingresa el punto manualmente.",
             );
           } finally {
             if (timer) clearTimeout(timer);
@@ -180,9 +193,9 @@ export function LocationPicker({
         <Button
           variant="quiet"
           onPress={() => {
-            setLatitude('');
-            setLongitude('');
-            setAddress('');
+            setLatitude("");
+            setLongitude("");
+            setAddress("");
             onChange(null);
             onValidityChange?.(true);
           }}
@@ -190,36 +203,42 @@ export function LocationPicker({
           Quitar ubicación
         </Button>
       )}
-      <Field
-        label="Latitud"
-        keyboardType="numbers-and-punctuation"
-        value={latitude}
-        onChangeText={(text) => {
-          setLatitude(text);
-          complete(text, longitude, address);
-        }}
-      />
-      <Field
-        label="Longitud"
-        keyboardType="numbers-and-punctuation"
-        value={longitude}
-        onChangeText={(text) => {
-          setLongitude(text);
-          complete(latitude, text, address);
-        }}
-      />
-      <Field
-        label="Dirección o referencia (opcional)"
-        maxLength={255}
-        value={address}
-        onChangeText={(text) => {
-          setAddress(text);
-          complete(latitude, longitude, text);
-        }}
-      />
+      <Disclosure
+        title="Ingresar coordenadas (avanzado)"
+        initiallyOpen={Boolean(error)}
+      >
+        <Field
+          label="Latitud"
+          keyboardType="numbers-and-punctuation"
+          value={latitude}
+          onChangeText={(text) => {
+            setLatitude(text);
+            complete(text, longitude, address);
+          }}
+        />
+        <Field
+          label="Longitud"
+          keyboardType="numbers-and-punctuation"
+          value={longitude}
+          onChangeText={(text) => {
+            setLongitude(text);
+            complete(latitude, text, address);
+          }}
+        />
+        <Field
+          label="Dirección o referencia (opcional)"
+          maxLength={255}
+          value={address}
+          onChangeText={(text) => {
+            setAddress(text);
+            complete(latitude, longitude, text);
+          }}
+        />
+      </Disclosure>
       {!value && (latitude || longitude || address) ? (
         <Text style={styles.error}>
-          Selecciona un punto o completa ambas coordenadas válidas para guardar la ubicación.
+          Selecciona un punto o completa ambas coordenadas válidas para guardar
+          la ubicación.
         </Text>
       ) : null}
     </View>

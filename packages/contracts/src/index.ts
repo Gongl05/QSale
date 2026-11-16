@@ -61,6 +61,13 @@ export interface Plan {
   createdAt: string;
   currentUserRole: ParticipantRole | null;
   currentUserParticipationStatus: ParticipationStatus | null;
+  agreement?: Agreement | null;
+}
+
+export interface Agreement {
+  date: string | null;
+  time: string | null;
+  place: string | null;
 }
 
 export interface PlanDetail extends Plan {
@@ -68,6 +75,7 @@ export interface PlanDetail extends Plan {
   inviteCode: string;
   creatorId: number;
   closedAt: string | null;
+  closingPreview?: Agreement | null;
 }
 
 export interface PlanInput {

@@ -46,6 +46,26 @@ export function createApp(config: Config) {
 
   app.post('/session/:action', async (req, res) => {
     const action = req.params.action;
+    if (action === 'password-reset-request' || action === 'password-reset-confirm') {
+      try {
+        const endpoint = action === 'password-reset-request' ? 'request' : 'confirm';
+        const result = await upstream(apiURL + '/auth/password-reset/' + endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body),
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (result.ok) {
+          if (endpoint === 'confirm') res.clearCookie('qsale_refresh', cookie);
+          res.status(result.status).end();
+        } else {
+          res.status(result.status).json({ message: 'No pudimos completar la recuperación.' });
+        }
+      } catch {
+        res.status(502).json({ message: 'No pudimos conectar con el servicio.' });
+      }
+      return;
+    }
     if (action === 'logout') {
       const refreshToken = req.cookies.qsale_refresh;
       if (refreshToken) {

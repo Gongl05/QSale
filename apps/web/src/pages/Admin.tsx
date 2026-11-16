@@ -1,41 +1,61 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ApiError } from '@qsale/api-client';
-import type { User } from '@qsale/contracts';
-import { api, useSession } from '../session';
-import { useAction } from '../hooks';
-import { Button, ConfirmDialog, EmptyState, ErrorState, Field, PageHeading, Skeleton } from '../ui';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ApiError } from "@qsale/api-client";
+import type { User } from "@qsale/contracts";
+import { api, useSession } from "../session";
+import { useAction } from "../hooks";
+import {
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  ErrorState,
+  Field,
+  PageHeading,
+  Skeleton,
+} from "../ui";
 
 export default function Admin() {
   const { user, updateUser } = useSession();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [target, setTarget] = useState<User | null>(null);
   const query = useQuery({
-    queryKey: ['admin', 'users'],
+    queryKey: ["admin", "users"],
     queryFn: ({ signal }) => api.users(signal),
-    enabled: user?.role === 'ADMIN',
+    enabled: user?.role === "ADMIN",
   });
   const change = useAction(
     async (target: User) => {
-      await api.updateRole(target.id, target.role === 'ADMIN' ? 'USER' : 'ADMIN');
+      await api.updateRole(
+        target.id,
+        target.role === "ADMIN" ? "USER" : "ADMIN",
+      );
       if (target.id === user?.id) updateUser(await api.me());
     },
-    'Rol actualizado.',
+    "Rol actualizado.",
     () => setTarget(null),
   );
   const filteredUsers =
     query.data?.filter((item) =>
-      (item.name + ' ' + item.email).toLowerCase().includes(search.trim().toLowerCase()),
+      (item.name + " " + item.email)
+        .toLowerCase()
+        .includes(search.trim().toLowerCase()),
     ) ?? [];
-  if (user?.role !== 'ADMIN')
+  if (user?.role !== "ADMIN")
     return (
-      <ErrorState error={new ApiError('Solo los administradores pueden ver esta pantalla.', 403)} />
+      <ErrorState
+        error={
+          new ApiError(
+            "Solo los administradores pueden ver esta pantalla.",
+            403,
+          )
+        }
+      />
     );
   return (
     <>
       <PageHeading
         title="Administración"
-        description="Gestiona los accesos con cuidado. QSale debe conservar al menos un administrador."
+        description="Gestiona los accesos del equipo. Quesale debe conservar al menos un administrador."
       />
       <Field
         label="Buscar usuario por nombre o correo"
@@ -61,21 +81,32 @@ export default function Admin() {
             <tbody>
               {filteredUsers.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.name}</td>
-                  <td>{item.email}</td>
-                  <td>{item.role === 'ADMIN' ? 'Administrador' : 'Usuario'}</td>
+                  <td className="user-name">{item.name}</td>
+                  <td className="user-email">{item.email}</td>
+                  <td>{item.role === "ADMIN" ? "Administrador" : "Usuario"}</td>
                   <td>
                     <Button
                       variant="secondary"
                       disabled={
                         change.isPending ||
-                        (item.role === 'ADMIN' &&
-                          query.data.filter((user) => user.role === 'ADMIN').length === 1)
+                        (item.role === "ADMIN" &&
+                          query.data.filter((user) => user.role === "ADMIN")
+                            .length === 1)
                       }
                       onClick={() => setTarget(item)}
                     >
-                      {item.role === 'ADMIN' ? 'Cambiar a usuario' : 'Hacer administrador'}
+                      {item.role === "ADMIN"
+                        ? "Cambiar a usuario"
+                        : "Hacer administrador"}
                     </Button>
+                    {item.role === "ADMIN" &&
+                      query.data.filter((user) => user.role === "ADMIN")
+                        .length === 1 && (
+                        <p className="action-reason">
+                          Es el último administrador. Asigna el rol a otra
+                          persona antes de retirarlo.
+                        </p>
+                      )}
                   </td>
                 </tr>
               ))}
@@ -85,7 +116,7 @@ export default function Admin() {
             <EmptyState
               title="No encontramos usuarios con esa búsqueda"
               action={
-                <Button variant="secondary" onClick={() => setSearch('')}>
+                <Button variant="secondary" onClick={() => setSearch("")}>
                   Limpiar búsqueda
                 </Button>
               }
@@ -98,8 +129,9 @@ export default function Admin() {
       {target && (
         <ConfirmDialog
           title="¿Cambiar este acceso?"
-          description={`${target.name} pasará a ser ${target.role === 'ADMIN' ? 'usuario' : 'administrador'}. Este cambio afecta sus permisos inmediatamente.`}
+          description={`${target.name} pasará a ser ${target.role === "ADMIN" ? "usuario" : "administrador"}. Este cambio afecta sus permisos inmediatamente.`}
           action="Cambiar rol"
+          intent={target.role === "ADMIN" ? "danger" : "default"}
           busy={change.isPending}
           onConfirm={() => change.mutate(target)}
           onClose={() => setTarget(null)}

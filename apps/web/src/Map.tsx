@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { MapPin, LocateFixed } from 'lucide-react';
-import type { Location } from '@qsale/contracts';
-import { Button, Field } from './ui';
+import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { MapPin, LocateFixed } from "lucide-react";
+import type { Location } from "@qsale/contracts";
+import { Button, Field } from "./ui";
 
 export interface MapPoint {
   latitude: number;
@@ -15,10 +15,12 @@ export function MapView({
   points,
   onSelect,
   initial,
+  onUnavailable,
 }: {
   points: MapPoint[];
   onSelect?: (location: Location) => void;
   initial?: Location | null;
+  onUnavailable?: () => void;
 }) {
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -27,25 +29,39 @@ export function MapView({
   const [failed, setFailed] = useState(false);
   const select = useRef(onSelect);
   select.current = onSelect;
+  const unavailable = useRef(onUnavailable);
+  unavailable.current = onUnavailable;
   useEffect(() => {
     if (!element.current) return;
-    const center = initial ?? points[0] ?? { latitude: -12.115, longitude: -77.025 };
+    const center = initial ??
+      points[0] ?? { latitude: -12.115, longitude: -77.025 };
     map.current = L.map(element.current, {
       scrollWheelZoom: false,
       zoomAnimation: false,
     }).setView([center.latitude, center.longitude], 12);
-    tiles.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
-      maxZoom: 19,
-    })
-      .on('tileerror', () => setFailed(true))
+    tiles.current = L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
+        maxZoom: 19,
+      },
+    )
+      .on("tileerror", () => {
+        setFailed(true);
+        unavailable.current?.();
+      })
       .addTo(map.current);
     markers.current = L.layerGroup().addTo(map.current);
-    map.current.on('click', (event: L.LeafletMouseEvent) =>
-      select.current?.({ latitude: event.latlng.lat, longitude: event.latlng.lng }),
+    map.current.on("click", (event: L.LeafletMouseEvent) =>
+      select.current?.({
+        latitude: event.latlng.lat,
+        longitude: event.latlng.lng,
+      }),
     );
-    const observer = new ResizeObserver(() => map.current?.invalidateSize({ pan: false }));
+    const observer = new ResizeObserver(() =>
+      map.current?.invalidateSize({ pan: false }),
+    );
     observer.observe(element.current);
     return () => {
       observer.disconnect();
@@ -60,15 +76,15 @@ export function MapView({
     markers.current?.clearLayers();
     const displayed = [
       ...points,
-      ...(initial ? [{ ...initial, label: 'Ubicación elegida' }] : []),
+      ...(initial ? [{ ...initial, label: "Ubicación elegida" }] : []),
     ];
     displayed.forEach((point) => {
-      const text = document.createElement('span');
+      const text = document.createElement("span");
       text.textContent = point.label;
       L.circleMarker([point.latitude, point.longitude], {
         radius: 9,
-        color: point.midpoint ? '#16644a' : '#C64B08',
-        fillColor: point.midpoint ? '#47b88b' : '#FF8224',
+        color: point.midpoint ? "#16644a" : "#C64B08",
+        fillColor: point.midpoint ? "#47b88b" : "#FF8224",
         fillOpacity: 1,
         weight: 2,
       })
@@ -76,28 +92,33 @@ export function MapView({
         .addTo(markers.current!);
     });
     if (displayed.length && map.current)
-      map.current.fitBounds(L.latLngBounds(displayed.map((p) => [p.latitude, p.longitude])), {
-        padding: [40, 40],
-        maxZoom: 14,
-        animate: false,
-      });
+      map.current.fitBounds(
+        L.latLngBounds(displayed.map((p) => [p.latitude, p.longitude])),
+        {
+          padding: [40, 40],
+          maxZoom: 14,
+          animate: false,
+        },
+      );
   }, [points, initial]);
   return (
-    <div>
+    <div className={"map-shell" + (failed ? " is-unavailable" : "")}>
       <div
         className="map"
         ref={element}
         aria-label={
           onSelect
-            ? 'Mapa para elegir ubicación. También puedes usar los campos de coordenadas.'
-            : 'Mapa de lugares propuestos y punto medio'
+            ? "Mapa para elegir ubicación. También puedes usar los campos de coordenadas."
+            : "Mapa de lugares propuestos y punto medio"
         }
         role="region"
       />
       {failed && (
-        <div role="status" className="form-hint">
+        <div role="status" className="map-recovery">
           <p>
-            No pudimos cargar parte del mapa. Puedes usar las coordenadas o volver a intentarlo.
+            {onSelect
+              ? "No pudimos cargar parte del mapa. Puedes ingresar las coordenadas o volver a intentarlo."
+              : "No pudimos cargar parte del mapa. Puedes consultar las ubicaciones en la lista o volver a intentarlo."}
           </p>
           <Button
             type="button"
@@ -123,28 +144,33 @@ export function LocationPicker({
   onChange: (value: Location | null) => void;
   onValidityChange?: (valid: boolean) => void;
 }) {
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [latitude, setLatitude] = useState(value ? String(value.latitude) : '');
-  const [longitude, setLongitude] = useState(value ? String(value.longitude) : '');
-  const [address, setAddress] = useState(value?.address ?? '');
+  const [manual, setManual] = useState(false);
+  const [latitude, setLatitude] = useState(value ? String(value.latitude) : "");
+  const [longitude, setLongitude] = useState(
+    value ? String(value.longitude) : "",
+  );
+  const [address, setAddress] = useState(value?.address ?? "");
   const complete = (latitude: string, longitude: string, address: string) => {
     const valid =
-      latitude.trim() !== '' &&
-      longitude.trim() !== '' &&
+      latitude.trim() !== "" &&
+      longitude.trim() !== "" &&
       Number.isFinite(Number(latitude)) &&
       Number.isFinite(Number(longitude)) &&
       Math.abs(Number(latitude)) <= 90 &&
       Math.abs(Number(longitude)) <= 180;
     onChange(
-      valid ? { latitude: Number(latitude), longitude: Number(longitude), address } : null,
+      valid
+        ? { latitude: Number(latitude), longitude: Number(longitude), address }
+        : null,
     );
     onValidityChange?.(valid || (!latitude && !longitude && !address));
   };
   const select = (point: Location) => {
     setLatitude(String(point.latitude));
     setLongitude(String(point.longitude));
-    setAddress(point.address ?? '');
+    setAddress(point.address ?? "");
     onChange(point);
     onValidityChange?.(true);
   };
@@ -153,17 +179,18 @@ export function LocationPicker({
       <div className="location-toolbar">
         <span>
           <MapPin size={18} />
-          {value ? 'Ubicación elegida' : 'Elige un punto en el mapa'}
+          {value ? "Ubicación elegida" : "Elige un punto en el mapa"}
         </span>
         <Button
           type="button"
           variant="secondary"
           busy={busy}
           onClick={() => {
-            setError('');
+            setError("");
             if (!navigator.geolocation) {
+              setManual(true);
               setError(
-                'Este navegador no ofrece ubicación. Elige un punto en el mapa o ingresa sus coordenadas.',
+                "Este navegador no ofrece ubicación. Elige un punto en el mapa o ingresa sus coordenadas.",
               );
               return;
             }
@@ -178,8 +205,9 @@ export function LocationPicker({
               },
               () => {
                 setBusy(false);
+                setManual(true);
                 setError(
-                  'No pudimos acceder a tu ubicación. Revisa el permiso o elige un punto manualmente.',
+                  "No pudimos acceder a tu ubicación. Revisa el permiso o elige un punto manualmente.",
                 );
               },
               { timeout: 12000, maximumAge: 60000 },
@@ -190,15 +218,20 @@ export function LocationPicker({
           Usar mi ubicación
         </Button>
       </div>
-      <MapView points={[]} initial={value} onSelect={select} />
+      <MapView
+        points={[]}
+        initial={value}
+        onSelect={select}
+        onUnavailable={() => setManual(true)}
+      />
       {value && (
         <Button
           type="button"
           variant="quiet"
           onClick={() => {
-            setLatitude('');
-            setLongitude('');
-            setAddress('');
+            setLatitude("");
+            setLongitude("");
+            setAddress("");
             onChange(null);
             onValidityChange?.(true);
           }}
@@ -206,53 +239,80 @@ export function LocationPicker({
           Quitar ubicación
         </Button>
       )}
-      <div className="form-row">
+      {value && (
         <Field
-          label="Latitud"
-          type="number"
-          step="any"
-          min={-90}
-          max={90}
-          value={latitude}
+          label="Dirección o referencia (opcional)"
+          maxLength={255}
+          value={address}
+          hint="Añade una referencia para reconocer el punto elegido. No es un buscador de direcciones."
           onChange={(event) => {
-            setLatitude(event.target.value);
-            complete(event.target.value, longitude, address);
+            setAddress(event.target.value);
+            complete(latitude, longitude, event.target.value);
           }}
         />
-        <Field
-          label="Longitud"
-          type="number"
-          step="any"
-          min={-180}
-          max={180}
-          value={longitude}
-          onChange={(event) => {
-            setLongitude(event.target.value);
-            complete(latitude, event.target.value, address);
-          }}
-        />
-      </div>
-      <Field
-        label="Dirección o referencia (opcional)"
-        maxLength={255}
-        value={address}
-        onChange={(event) => {
-          setAddress(event.target.value);
-          complete(latitude, longitude, event.target.value);
-        }}
-      />
-      {!value && (latitude || longitude || address) && (
-        <p className="field-error">
-          Selecciona un punto o completa ambas coordenadas válidas para guardar la ubicación.
-        </p>
       )}
+      <details
+        className="optional-fields"
+        open={manual}
+        onToggle={(event) => setManual(event.currentTarget.open)}
+      >
+        <summary>Ingresar coordenadas manualmente</summary>
+        <p className="form-hint">
+          Alternativa para cuando no puedes usar el mapa o el permiso de
+          ubicación.
+        </p>
+        <div className="form-row">
+          <Field
+            label="Latitud"
+            type="number"
+            step="any"
+            min={-90}
+            max={90}
+            value={latitude}
+            onChange={(event) => {
+              setLatitude(event.target.value);
+              complete(event.target.value, longitude, address);
+            }}
+          />
+          <Field
+            label="Longitud"
+            type="number"
+            step="any"
+            min={-180}
+            max={180}
+            value={longitude}
+            onChange={(event) => {
+              setLongitude(event.target.value);
+              complete(latitude, event.target.value, address);
+            }}
+          />
+        </div>
+        {!value && (
+          <Field
+            label="Dirección o referencia (opcional)"
+            maxLength={255}
+            value={address}
+            onChange={(event) => {
+              setAddress(event.target.value);
+              complete(latitude, longitude, event.target.value);
+            }}
+          />
+        )}
+        {!value && (latitude || longitude || address) && (
+          <p className="field-error">
+            Selecciona un punto o completa ambas coordenadas válidas para
+            guardar la ubicación.
+          </p>
+        )}
+      </details>
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
       <p className="form-hint">
-        El mapa usa OpenStreetMap y necesita conexión. También puedes ingresar las coordenadas.
+        El mapa usa OpenStreetMap y necesita conexión. También puedes ingresar
+        las coordenadas.
       </p>
     </div>
   );

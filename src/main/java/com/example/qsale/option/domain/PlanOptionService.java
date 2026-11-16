@@ -15,6 +15,7 @@ import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
 import com.example.qsale.plan.domain.FeasibilityService;
 import com.example.qsale.plan.domain.Plan;
 import com.example.qsale.plan.domain.PlanAccessService;
+import com.example.qsale.plan.dto.AgreementDto;
 import com.example.qsale.plan.events.PlanChangedEvent;
 import com.example.qsale.user.domain.User;
 import com.example.qsale.user.domain.UserService;
@@ -30,6 +31,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -179,6 +182,37 @@ public class PlanOptionService {
         place.setSelected(true);
         plan.setTentativeStartDate(date.getEffectiveDate());
         plan.setTentativeEndDate(date.getEffectiveEndDate());
+    }
+
+    @Transactional(readOnly = true)
+    public AgreementDto closingPreview(Plan plan) {
+        if (!plan.isOpen()) return null;
+        try {
+            return agreement(bestVotedOption(plan.getId(), OptionType.DATE),
+                    bestVotedOption(plan.getId(), OptionType.PLACE));
+        } catch (InvalidOperationException unavailable) {
+            return null;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, AgreementDto> selectedAgreements(List<Long> planIds) {
+        if (planIds.isEmpty()) return Map.of();
+        return optionRepository.findByPlanIdInAndSelectedTrue(planIds).stream()
+                .collect(Collectors.groupingBy(option -> option.getPlan().getId()))
+                .entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+                    PlanOption date = entry.getValue().stream().filter(option -> option.getType() == OptionType.DATE)
+                            .findFirst().orElse(null);
+                    PlanOption place = entry.getValue().stream().filter(option -> option.getType() == OptionType.PLACE)
+                            .findFirst().orElse(null);
+                    return agreement(date, place);
+                }));
+    }
+
+    private AgreementDto agreement(PlanOption date, PlanOption place) {
+        return new AgreementDto(date == null ? null : date.getEffectiveDate(),
+                date == null || date.getStartsAt() == null ? null : date.getStartsAt().toLocalTime(),
+                place == null ? null : place.getLabel());
     }
 
     private PlanOption bestVotedOption(Long planId, OptionType type) {

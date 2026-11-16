@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
-import { Linking, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { api } from './session';
-import { Button, Field, Heading, Screen, Text, styles, useAction } from './ui';
+import { useRef, useState } from "react";
+import { Linking, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { api } from "./session";
+import { Button, Field, Heading, Screen, Text, useAction, useUI } from "./ui";
 
 export function invitationCode(input: string) {
   const raw = input.trim();
@@ -14,11 +14,11 @@ export function invitationCode(input: string) {
       ? new URL(process.env.EXPO_PUBLIC_WEB_URL).origin
       : null;
     const path =
-      url.protocol === 'qsale:'
-        ? '/' + url.host + url.pathname
+      url.protocol === "qsale:"
+        ? "/" + url.host + url.pathname
         : webOrigin && url.origin === webOrigin
           ? url.pathname
-          : '';
+          : "";
     const match = path.match(/^\/join\/([a-f\d]{8})\/?$/i);
     return match?.[1]?.toUpperCase() ?? null;
   } catch {
@@ -26,52 +26,59 @@ export function invitationCode(input: string) {
   }
 }
 export default function JoinScreen() {
+  const { colors, styles, dark } = useUI();
   const params = useLocalSearchParams<{ code?: string }>();
-  const [code, setCode] = useState(params.code ?? ''),
+  const [code, setCode] = useState(params.code ?? ""),
     [camera, setCamera] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState("");
   const lock = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
   const router = useRouter();
-  const action = useAction((code: string) => api.join(code), 'Ya eres parte del plan.');
+  const action = useAction(
+    (code: string) => api.join(code),
+    "Ya eres parte del plan.",
+  );
   return (
     <Screen>
       <Heading
-        title="Te guardaron un lugar"
+        title="Unirme a un plan"
         description="Escribe el código de tu grupo o escanea su invitación."
       />
       <View style={styles.surface}>
         <Field
           label="Código de invitación"
           value={code}
-          onChangeText={(text) => setCode(text.toUpperCase())}
+          onChangeText={(text) =>
+            setCode(text.replace(/\s/g, "").toUpperCase().slice(0, 8))
+          }
           autoCapitalize="characters"
           autoCorrect={false}
-          maxLength={8}
+          maxLength={32}
+          error={error || undefined}
           placeholder="A1B2C3D4"
           style={styles.code}
         />
         <Text style={styles.subtitle}>
-          Unirte al grupo te permite proponer y votar. Después podrás confirmar si vas.
+          Unirte al grupo te permite proponer y votar. Después podrás confirmar
+          si vas.
         </Text>
-        {Boolean(error) && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
-        )}
         <Button
           busy={action.isPending}
           onPress={() => {
-            setError('');
+            setError("");
             const parsed = invitationCode(code);
             if (!parsed) {
-              setError('El código tiene 8 letras y números. Revisa que esté completo.');
+              setError(
+                "Copia los 8 caracteres del código de invitación y revisa que esté completo.",
+              );
               return;
             }
             action.mutate(parsed, {
               onSuccess: (result) => {
                 const participant = result as { planId: number };
-                router.dismissTo(('/plans/' + participant.planId) as '/plans/[id]');
+                router.dismissTo(
+                  ("/plans/" + participant.planId) as "/plans/[id]",
+                );
               },
             });
           }}
@@ -82,19 +89,21 @@ export default function JoinScreen() {
           variant="secondary"
           icon="camera"
           onPress={async () => {
-            setError('');
+            setError("");
             try {
-              const result = permission?.granted ? permission : await requestPermission();
+              const result = permission?.granted
+                ? permission
+                : await requestPermission();
               if (result.granted) {
                 lock.current = false;
                 setCamera(true);
               } else
                 setError(
-                  'No se concedió acceso a la cámara. Puedes ingresar el código manualmente o habilitar el permiso en Ajustes.',
+                  "No se concedió acceso a la cámara. Puedes ingresar el código manualmente o habilitar el permiso en Ajustes.",
                 );
             } catch {
               setError(
-                'No pudimos abrir la cámara. Puedes ingresar el código de invitación manualmente.',
+                "No pudimos abrir la cámara. Puedes ingresar el código de invitación manualmente.",
               );
             }
           }}
@@ -109,11 +118,11 @@ export default function JoinScreen() {
       </View>
       {camera && permission?.granted && (
         <View style={{ gap: 15 }}>
-          <View style={{ height: 340, borderRadius: 15, overflow: 'hidden' }}>
+          <View style={{ height: 340, borderRadius: 15, overflow: "hidden" }}>
             <CameraView
               style={{ flex: 1 }}
               facing="back"
-              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
               onBarcodeScanned={(event) => {
                 if (lock.current) return;
                 lock.current = true;
@@ -121,17 +130,17 @@ export default function JoinScreen() {
                 setCamera(false);
                 if (parsed) {
                   setCode(parsed);
-                  setError('');
+                  setError("");
                 } else
                   setError(
-                    'Este QR no corresponde a una invitación de QSale. Solicita el código a quien organiza.',
+                    "Este QR no corresponde a una invitación de Quesale. Solicita el código a quien organiza.",
                   );
               }}
             />
           </View>
           <Text style={styles.muted}>
-            El código aparecerá arriba. Revisa la invitación antes de unirte; escanear no confirma
-            ninguna acción.
+            El código aparecerá arriba. Revisa la invitación antes de unirte;
+            escanear no confirma ninguna acción.
           </Text>
           <Button variant="secondary" onPress={() => setCamera(false)}>
             Cerrar cámara

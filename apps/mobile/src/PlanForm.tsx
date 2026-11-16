@@ -1,20 +1,21 @@
-import { useEffect, useRef } from 'react';
-import { View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ApiError } from '@qsale/api-client';
+import { useEffect, useRef } from "react";
+import { View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ApiError } from "@qsale/api-client";
 import {
   canManagePlan,
   planSchema,
   planTypes,
   planTypeLabels,
   type PlanInput,
-} from '@qsale/contracts';
-import { DateField } from './DateField';
-import { NumberField } from './NumberField';
-import { api, useSession } from './session';
+} from "@qsale/contracts";
+import { DateField } from "./DateField";
+import { useUnsavedChanges } from "./useUnsavedChanges";
+import { NumberField } from "./NumberField";
+import { api, useSession } from "./session";
 import {
   Button,
   ErrorState,
@@ -22,13 +23,15 @@ import {
   Heading,
   Loading,
   Screen,
-  Tabs,
+  Choice,
   Text,
-  styles,
   useToast,
-} from './ui';
+  Disclosure,
+  useUI,
+} from "./ui";
 
 export default function PlanForm({ editing = false }: { editing?: boolean }) {
+  const { colors, styles, dark } = useUI();
   const { id } = useLocalSearchParams<{ id: string }>();
   const planId = Number(id);
   const router = useRouter();
@@ -36,7 +39,7 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
   const cache = useQueryClient();
   const toast = useToast();
   const query = useQuery({
-    queryKey: ['plan', planId],
+    queryKey: ["plan", planId],
     queryFn: ({ signal }) => api.plan(planId, signal),
     enabled: editing,
   });
@@ -47,32 +50,38 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
     setError,
     formState: { errors, isSubmitting, dirtyFields },
   } = useForm<PlanInput>({
-    mode: 'onTouched',
+    mode: "onTouched",
     resolver: zodResolver(planSchema),
     defaultValues: {
-      name: '',
-      description: '',
-      type: 'DINNER',
+      name: "",
+      description: "",
+      type: "DINNER",
       minParticipants: 2,
       budget: null,
       tentativeStartDate: null,
       tentativeEndDate: null,
     },
   });
+  const allowNavigation = useUnsavedChanges(
+    Object.keys(dirtyFields).length > 0 && !isSubmitting,
+  );
   const loadedPlan = useRef<number | null>(null);
   const editVersion = useRef<number | undefined>(undefined);
   const dirty = useRef(dirtyFields);
   dirty.current = dirtyFields;
   useEffect(() => {
     if (query.data) {
-      const keepDraft = loadedPlan.current === query.data.id && Object.keys(dirty.current).length > 0;
+      const keepDraft =
+        loadedPlan.current === query.data.id &&
+        Object.keys(dirty.current).length > 0;
       if (!keepDraft) editVersion.current = query.data.version;
       reset(
-        { ...query.data, description: query.data.description ?? '' },
+        { ...query.data, description: query.data.description ?? "" },
         {
           keepErrors: true,
           keepDirtyValues:
-            loadedPlan.current === query.data.id && Object.keys(dirty.current).length > 0,
+            loadedPlan.current === query.data.id &&
+            Object.keys(dirty.current).length > 0,
         },
       );
       loadedPlan.current = query.data.id;
@@ -89,14 +98,19 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
     return (
       <Screen>
         <ErrorState
-          error={new ApiError('Solo quien organiza puede editar un plan abierto.', 403)}
+          error={
+            new ApiError(
+              "Solo quien organiza puede editar un plan abierto.",
+              403,
+            )
+          }
         />
       </Screen>
     );
   return (
     <Screen>
       <Heading
-        title={editing ? 'Ajustemos el plan' : 'Una idea. Mucho por compartir.'}
+        title={editing ? "Editar plan" : "Crear plan"}
         description="Empieza con lo esencial. La fecha y el lugar los pueden decidir juntos."
       />
       <View style={styles.surface}>
@@ -120,13 +134,13 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
           render={({ field, fieldState }) => (
             <Field
               label="Cuéntales la idea (opcional)"
-              value={field.value ?? ''}
+              value={field.value ?? ""}
               onChangeText={field.onChange}
               error={fieldState.error?.message}
               multiline
               numberOfLines={4}
               maxLength={1000}
-              style={{ minHeight: 100, textAlignVertical: 'top' }}
+              style={{ minHeight: 100, textAlignVertical: "top" }}
             />
           )}
         />
@@ -135,8 +149,10 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
           control={control}
           name="type"
           render={({ field }) => (
-            <Tabs
-              items={planTypes.map((type) => [type, planTypeLabels[type]] as const)}
+            <Choice
+              items={planTypes.map(
+                (type) => [type, planTypeLabels[type]] as const,
+              )}
               value={field.value}
               onChange={field.onChange}
             />
@@ -156,44 +172,46 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
             />
           )}
         />
-        <Controller
-          control={control}
-          name="budget"
-          render={({ field, fieldState }) => (
-            <NumberField
-              label="Presupuesto estimado (S/)"
-              value={field.value}
-              onChange={field.onChange}
-              optional
-              error={fieldState.error?.message}
-              hint="Opcional. Aclara en la descripción qué incluye."
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="tentativeStartDate"
-          render={({ field, fieldState }) => (
-            <DateField
-              label="Fecha inicial tentativa"
-              value={field.value ?? ''}
-              onChange={(text) => field.onChange(text || null)}
-              error={fieldState.error?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="tentativeEndDate"
-          render={({ field, fieldState }) => (
-            <DateField
-              label="Fecha final tentativa"
-              value={field.value ?? ''}
-              onChange={(text) => field.onChange(text || null)}
-              error={fieldState.error?.message}
-            />
-          )}
-        />
+        <Disclosure title="Presupuesto y fechas (opcional)">
+          <Controller
+            control={control}
+            name="budget"
+            render={({ field, fieldState }) => (
+              <NumberField
+                label="Presupuesto estimado (S/)"
+                value={field.value}
+                onChange={field.onChange}
+                optional
+                error={fieldState.error?.message}
+                hint="Opcional. Aclara en la descripción qué incluye."
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="tentativeStartDate"
+            render={({ field, fieldState }) => (
+              <DateField
+                label="Fecha inicial tentativa"
+                value={field.value ?? ""}
+                onChange={(text) => field.onChange(text || null)}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="tentativeEndDate"
+            render={({ field, fieldState }) => (
+              <DateField
+                label="Fecha final tentativa"
+                value={field.value ?? ""}
+                onChange={(text) => field.onChange(text || null)}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+        </Disclosure>
         {errors.root && (
           <Text accessibilityRole="alert" style={styles.error}>
             {errors.root.message}
@@ -202,39 +220,66 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
         <Button
           busy={isSubmitting}
           onPress={handleSubmit(async (values) => {
-            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+            const today = new Date().toLocaleDateString("en-CA", {
+              timeZone: "America/Lima",
+            });
             if (
               [values.tentativeStartDate, values.tentativeEndDate].some(
-                (value) => value && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < today),
+                (value) =>
+                  value &&
+                  (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < today),
               )
             ) {
-              setError('root', {
-                message: 'Escribe las fechas como AAAA-MM-DD y usa hoy o una fecha futura.',
+              setError("root", {
+                message:
+                  "Escribe las fechas como AAAA-MM-DD y usa hoy o una fecha futura.",
               });
               return;
             }
             try {
               const plan = await (editing
-                ? api.updatePlan(planId, { ...values, version: editVersion.current })
+                ? api.updatePlan(planId, {
+                    ...values,
+                    version: editVersion.current,
+                  })
                 : api.createPlan(values));
               await cache.invalidateQueries();
-              toast(editing ? 'Plan actualizado.' : 'Tu plan está listo para recibir ideas.');
-              router.dismissTo(('/plans/' + plan.id) as '/plans/[id]');
+              toast(
+                editing
+                  ? "Plan actualizado."
+                  : "Tu plan está listo para recibir ideas.",
+              );
+              reset(values);
+              allowNavigation();
+              router.dismissTo(("/plans/" + plan.id) as "/plans/[id]");
             } catch (error) {
-              if (editing && error instanceof ApiError && error.status === 409) {
+              if (
+                editing &&
+                error instanceof ApiError &&
+                error.status === 409
+              ) {
                 const latest = await query.refetch();
                 if (latest.data) {
                   editVersion.current = latest.data.version;
-                  reset({ ...latest.data, description: latest.data.description ?? '' }, { keepDirtyValues: true });
+                  reset(
+                    {
+                      ...latest.data,
+                      description: latest.data.description ?? "",
+                    },
+                    { keepDirtyValues: true },
+                  );
                 }
-                setError('root', { message: 'El plan cambió en otra sesión. Conservamos tu borrador y actualizamos los demás campos. Revísalos antes de volver a guardar.' });
+                setError("root", {
+                  message:
+                    "El plan cambió en otra sesión. Conservamos tu borrador y actualizamos los demás campos. Revísalos antes de volver a guardar.",
+                });
                 return;
               }
-              setError('root', { message: (error as Error).message });
+              setError("root", { message: (error as Error).message });
             }
           })}
         >
-          {editing ? 'Guardar cambios' : 'Crear plan'}
+          {editing ? "Guardar cambios" : "Crear plan"}
         </Button>
       </View>
     </Screen>

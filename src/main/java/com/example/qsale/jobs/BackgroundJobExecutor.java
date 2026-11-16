@@ -23,6 +23,7 @@ public class BackgroundJobExecutor {
     private final NotificationRepository notificationRepository;
     private final PlanOptionService options;
     private final PlanOptionRepository optionRepository;
+    private final com.example.qsale.auth.domain.PasswordRecoveryService recovery;
 
     @Transactional
     public void execute(String id) {
@@ -40,6 +41,7 @@ public class BackgroundJobExecutor {
             case "TRAVEL_PLAN" -> optionRepository.findByPlanIdAndType(payload.targetId(),OptionType.PLACE)
                     .forEach(option -> queue.enqueue("TRAVEL_OPTION",JobPayload.target(option.getId())));
             case "EMAIL" -> deliver(payload);
+            case "PASSWORD_RECOVERY" -> recovery.deliverRequest(payload.email());
             default -> throw new IllegalArgumentException("Unknown background job type");
         }
     }

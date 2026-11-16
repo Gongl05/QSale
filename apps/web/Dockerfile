@@ -5,9 +5,12 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/mobile/package.json apps/mobile/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
+COPY packages/design-tokens/package.json packages/design-tokens/package.json
 RUN npm ci --workspace @qsale/web --workspace @qsale/contracts --workspace @qsale/api-client --include-workspace-root --ignore-scripts --no-audit --no-fund
 COPY packages ./packages
 COPY apps/web ./apps/web
+COPY tests/environment.ts ./tests/environment.ts
+COPY apps/mobile/tests/local-api.ts ./apps/mobile/tests/local-api.ts
 RUN npm run build:web
 RUN npm prune --omit=dev --workspace @qsale/web --workspace @qsale/contracts --workspace @qsale/api-client --include-workspace-root --ignore-scripts --no-audit --no-fund
 

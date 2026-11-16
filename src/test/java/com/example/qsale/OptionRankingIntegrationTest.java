@@ -44,7 +44,15 @@ class OptionRankingIntegrationTest extends AbstractContainerBaseTest {
         send("POST","/api/v1/options/"+near+"/votes",guest,"{}",201);
         String before=send("GET","/api/v1/plans/"+id+"/options?type=PLACE",owner,null,200);
         assertEquals(near,((Number)JsonPath.read(before,"$[0].id")).longValue());
+        String preview=send("GET","/api/v1/plans/"+id,owner,null,200);
+        assertEquals("Near place",JsonPath.read(preview,"$.closingPreview.place"));
+        assertEquals(day,JsonPath.read(preview,"$.closingPreview.date"));
         send("PATCH","/api/v1/plans/"+id+"/close",owner,"{}",200);
+        String confirmed=send("GET","/api/v1/plans/"+id,owner,null,200);
+        assertEquals("Near place",JsonPath.read(confirmed,"$.agreement.place"));
+        assertEquals(day,JsonPath.read(confirmed,"$.agreement.date"));
+        String list=send("GET","/api/v1/plans",owner,null,200);
+        assertEquals("Near place",JsonPath.read(list,"$.content[0].agreement.place"));
         String after=send("GET","/api/v1/plans/"+id+"/options?type=PLACE",owner,null,200);
         assertEquals(near,((Number)((List<?>)JsonPath.read(after,"$[?(@.selected == true)].id")).getFirst()).longValue());
     }

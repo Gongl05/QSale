@@ -42,6 +42,7 @@ public class NotificationService {
     private final BackgroundQueue queue;
     private final UserService userService;
     private final ModelMapper modelMapper;
+    private final PublicLinks links;
 
     @PreAuthorize("isAuthenticated()")
     @Transactional(readOnly = true)
@@ -85,8 +86,8 @@ public class NotificationService {
 
     public void sendWelcomeEmail(Long userId) {
         User user = userService.getUserById(userId);
-        queue.enqueue("EMAIL",new JobPayload(null,null,user.getEmail(),"Bienvenido a QSale","email/welcome",
-                Map.of("name", user.getName(), "email", user.getEmail())));
+        queue.enqueue("EMAIL",new JobPayload(null,null,user.getEmail(),"Tu cuenta de Quesale","email/welcome",
+                Map.of("name", user.getName(), "email", user.getEmail(), "actionUrl", links.plans(), "logoUrl", links.logo())));
     }
 
     @Transactional
@@ -95,7 +96,7 @@ public class NotificationService {
         User invitee = userService.getUserById(userId);
         EmailContent email = new EmailContent("Te invitaron a " + plan.getName(), "email/plan-invitation",
                 Map.of("planName", plan.getName(), "organizerName", plan.getCreator().getName(),
-                        "inviteCode", plan.getInviteCode()));
+                        "inviteCode", plan.getInviteCode(), "actionUrl", links.invitation(plan.getInviteCode()), "logoUrl", links.logo()));
         notify(invitee, plan, NotificationType.PLAN_INVITATION,
                 plan.getCreator().getName() + " te invitó al plan " + plan.getName(), email);
     }
@@ -105,7 +106,7 @@ public class NotificationService {
         Plan plan = planAccessService.getPlan(planId);
         EmailContent email = new EmailContent(plan.getName() + " está listo para cerrarse", "email/plan-ready",
                 Map.of("planName", plan.getName(), "minParticipants", plan.getMinParticipants(),
-                        "score", plan.getFeasibilityScore()));
+                        "score", plan.getFeasibilityScore(), "actionUrl", links.plan(planId), "logoUrl", links.logo()));
         notify(plan.getCreator(), plan, NotificationType.MIN_PARTICIPANTS_REACHED,
                 "El plan " + plan.getName() + " alcanzó el mínimo de confirmados y está listo para cerrarse", email);
     }
@@ -157,7 +158,8 @@ public class NotificationService {
                 "planName", plan.getName(),
                 "selectedDate", selectedLabel(selected, OptionType.DATE),
                 "selectedPlace", selectedLabel(selected, OptionType.PLACE),
-                "budget", plan.getBudget() == null ? "Sin definir" : String.format("S/ %.2f", plan.getBudget())));
+                "budget", plan.getBudget() == null ? "Sin definir" : String.format("S/ %.2f", plan.getBudget()),
+                "actionUrl", links.plan(plan.getId()), "logoUrl", links.logo()));
     }
 
     private String selectedLabel(List<PlanOption> selected, OptionType type) {

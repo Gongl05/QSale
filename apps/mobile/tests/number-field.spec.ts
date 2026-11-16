@@ -20,7 +20,7 @@ test('native form can clear the default count, recover validation, enter decimal
     await page.getByLabel('Correo electrónico').fill(email);
     await page.getByLabel('Contraseña', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Crear mi cuenta', exact: true }).click();
-    await expect(page.getByText('Hagamos que salga.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mis planes', exact: true }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Crear plan', exact: true }).click();
     await page.getByLabel('¿Cómo se llama el plan?').fill('Regresión de campos numéricos');
     const count = page.getByLabel('Mínimo de personas');
@@ -36,6 +36,7 @@ test('native form can clear the default count, recover validation, enter decimal
     await expect(page.getByText('El mínimo es dos personas.', { exact: true })).toBeVisible();
     await count.fill('5');
     await expect(count).toHaveValue('5');
+    await page.getByRole('button', { name: 'Presupuesto y fechas (opcional)', exact: true }).click();
     const budget = page.getByLabel('Presupuesto estimado (S/)');
     await budget.fill('40.');
     await expect(budget).toHaveValue('40.');

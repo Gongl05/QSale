@@ -15,4 +15,8 @@ public interface AuthSessionRepository extends JpaRepository<AuthSession, String
     boolean existsByIdAndUserEmailAndRevokedAtIsNullAndExpiresAtAfter(String id, String email, Instant now);
 
     void deleteByExpiresAtBefore(Instant now);
+
+    @Modifying
+    @Query("update AuthSession s set s.revokedAt = :now where s.user.id = :userId and s.revokedAt is null")
+    int revokeForUser(@Param("userId") Long userId, @Param("now") Instant now);
 }

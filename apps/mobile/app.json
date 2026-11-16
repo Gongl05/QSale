@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "QSale",
+    "name": "Quesale",
     "slug": "qsale",
     "scheme": "qsale",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/qsale.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "pe.qsale.app"
     },
     "android": {
       "package": "pe.qsale.app",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": true
     },
     "web": {
       "favicon": "./assets/qsale.png",
@@ -26,7 +26,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "QSale usa la cámara para leer códigos QR de invitación.",
+          "cameraPermission": "Quesale usa la cámara para leer códigos QR de invitación.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
@@ -34,7 +34,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "QSale usa tu ubicación solo cuando la solicitas, para ayudar a elegir un punto de encuentro."
+          "locationWhenInUsePermission": "Quesale usa tu ubicación solo cuando la solicitas, para ayudar a elegir un punto de encuentro."
         }
       ],
       "@react-native-community/datetimepicker"
