@@ -1676,31 +1676,13 @@ td .button {
     grid-template-columns: 1fr;
   }
   .detail-aside {
-    order: -1;
+    order: initial;
   }
   .decision-panel {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 24px;
-  }
-  .decision-panel > h2 {
-    grid-column: 1/-1;
+    display: block;
   }
   .decision-panel .commitment-buttons {
     grid-template-columns: 1fr;
-    grid-column: 2;
-    grid-row: 2/5;
-  }
-  .decision-panel > h3 {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .decision-panel > .field,
-  .decision-panel > .saved-note {
-    grid-column: 2;
-  }
-  .decision-panel .organizer-actions {
-    grid-column: 1/-1;
   }
   .detail-aside .delete-plan {
     width: auto;

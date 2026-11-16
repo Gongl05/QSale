@@ -1,3 +1,4 @@
+import { apiURL } from '../../../tests/environment';
 import { test, expect } from '@playwright/test';
 import { localApiBridge } from './local-api';
 
@@ -43,7 +44,7 @@ test('native form can clear the default count, recover validation, enter decimal
     await page.getByRole('button', { name: 'Crear plan', exact: true }).click();
     await expect(page).toHaveURL(/\/plans\/\d+$/);
     expect(planId).toBeDefined();
-    const saved = await request.get('http://127.0.0.1:19080/api/v1/plans/' + planId, {
+    const saved = await request.get(apiURL + '/plans/' + planId, {
       headers: { Authorization: 'Bearer ' + token },
     });
     expect(await saved.json()).toMatchObject({ minParticipants: 5, budget: 40.5 });
@@ -51,7 +52,7 @@ test('native form can clear the default count, recover validation, enter decimal
     await page.unrouteAll({ behavior: 'wait' });
     await page.close();
     if (planId && token)
-      await request.delete('http://127.0.0.1:19080/api/v1/plans/' + planId, {
+      await request.delete(apiURL + '/plans/' + planId, {
         headers: { Authorization: 'Bearer ' + token },
       });
   }

@@ -1,3 +1,4 @@
+import { apiURL } from '../../../tests/environment';
 import { test, expect } from '@playwright/test';
 import { localApiBridge } from './local-api';
 
@@ -62,7 +63,7 @@ test('native proposal returns to the plan and cancellation prevents further cont
     if (!page.isClosed()) await page.unrouteAll({ behavior: 'wait' });
     if (!page.isClosed()) await page.close();
     if (planId && token)
-      await request.delete('http://127.0.0.1:19080/api/v1/plans/' + planId, {
+      await request.delete(apiURL + '/plans/' + planId, {
         headers: { Authorization: 'Bearer ' + token },
       });
   }

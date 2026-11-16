@@ -1,8 +1,9 @@
+import { apiURL, mobileURL } from '../../../tests/environment';
 import { test, expect as baseExpect, type APIRequestContext, type Page } from '@playwright/test';
 import { localApiBridge } from '../../mobile/tests/local-api';
 
 const expect = baseExpect.configure({ timeout: 12_000 });
-const endpoint = 'http://127.0.0.1:19080/api/v1';
+const endpoint = apiURL;
 const password = 'CoordinationTest2026';
 const future = (offset: number) =>
   new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
@@ -13,7 +14,7 @@ async function account(request: APIRequestContext, name: string) {
   return { email, token: (await result.json()).token as string };
 }
 async function login(page: Page, email: string, mobile = false) {
-  await page.goto((mobile ? 'http://127.0.0.1:8081' : '') + '/login');
+  await page.goto((mobile ? mobileURL : '') + '/login');
   await page.getByLabel('Correo electrónico').fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Entrar a QSale', exact: true }).click();

@@ -8,6 +8,7 @@ import com.example.qsale.option.events.TravelEstimateRefreshRequestedEvent;
 import com.example.qsale.participant.domain.ParticipationStatus;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
 import com.example.qsale.plan.domain.Plan;
+import com.example.qsale.plan.domain.PlanStatus;
 import com.example.qsale.user.dto.RoleUpdateDto;
 import com.example.qsale.user.dto.UserResponseDto;
 import com.example.qsale.user.dto.UserUpdateDto;
@@ -88,7 +89,7 @@ public class UserService implements UserDetailsService {
         if (coordinatesChanged) {
             participantRepository.findByUserIdAndStatus(user.getId(), ParticipationStatus.JOINED).stream()
                     .map(participant -> participant.getPlan())
-                    .filter(Plan::isOpen)
+                    .filter(plan -> plan.getStatus() != PlanStatus.CANCELLED)
                     .map(Plan::getId)
                     .distinct()
                     .forEach(planId -> eventPublisher.publishEvent(new TravelEstimateRefreshRequestedEvent(this, planId)));

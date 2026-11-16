@@ -1,3 +1,4 @@
+import { apiURL, webURL, mobileURL, webPort, mobilePort, sessionPort } from '../../tests/environment';
 import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
@@ -6,7 +7,7 @@ export default defineConfig({
   timeout: 60000,
   expect: { timeout: 15_000 },
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: webURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     navigationTimeout: 60_000,
@@ -21,20 +22,21 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm run dev:web',
+      env: { API_URL:apiURL, APP_ORIGIN:webURL, PORT:String(sessionPort), QSALE_WEB_PORT:String(webPort), QSALE_SESSION_PORT:String(sessionPort) },
       cwd: '../..',
-      url: 'http://127.0.0.1:5173',
+      url: webURL,
       reuseExistingServer: !process.env.CI,
       timeout: 60000,
     },
     {
-      command: 'npx expo start --web --port 8081',
+      command: `npx expo start --web --port ${mobilePort}`,
       cwd: '../mobile',
-      url: 'http://127.0.0.1:8081',
+      url: mobileURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
       env: {
-        EXPO_PUBLIC_API_URL: 'http://127.0.0.1:19080/api/v1',
-        EXPO_PUBLIC_WEB_URL: 'http://127.0.0.1:5173',
+        EXPO_PUBLIC_API_URL: apiURL,
+        EXPO_PUBLIC_WEB_URL: webURL,
       },
     },
   ],
