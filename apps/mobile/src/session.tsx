@@ -109,7 +109,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     (async () => {
       if (!apiURL || (!__DEV__ && !apiURL.startsWith('https://')))
         throw new ApiError(
-          'El servicio aún no está configurado. Contacta al equipo de Quesale.',
+          'El servicio aún no está configurado. Contacta al equipo de QSale.',
           503,
         );
       if (Platform.OS !== 'web') {

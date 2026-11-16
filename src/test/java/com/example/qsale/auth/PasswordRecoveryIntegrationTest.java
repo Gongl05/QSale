@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties = "app.web-url=https://quesale.test")
+@SpringBootTest(properties = "app.web-url=https://qsale.test")
 @AutoConfigureMockMvc
 class PasswordRecoveryIntegrationTest extends AbstractContainerBaseTest {
     @Autowired MockMvc mvc;
@@ -40,7 +40,7 @@ class PasswordRecoveryIntegrationTest extends AbstractContainerBaseTest {
             }
             return true;
         });
-        String address=UUID.randomUUID()+"@quesale.test";
+        String address=UUID.randomUUID()+"@qsale.test";
         String signup=mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"Recovery Test\",\"email\":\""+address+"\",\"password\":\"Original2026\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
@@ -54,7 +54,7 @@ class PasswordRecoveryIntegrationTest extends AbstractContainerBaseTest {
         assertEquals(known,missing);
         recovery.deliverRequest(address);
         assertNotNull(link.get());
-        assertTrue(link.get().startsWith("https://quesale.test/reset-password?token="));
+        assertTrue(link.get().startsWith("https://qsale.test/reset-password?token="));
         String token=link.get().substring(link.get().indexOf("token=")+6);
         var row=resets.findById(users.findByEmail(address).orElseThrow().getId()).orElseThrow();
         assertNotEquals(token,row.getTokenHash());assertEquals(64,row.getTokenHash().length());

@@ -35,7 +35,7 @@ export default function Root() {
   if (!fonts && !error)
     return (
       <SafeAreaProvider>
-        <Loading label="Preparando Quesale…" />
+        <Loading label="Preparando QSale…" />
       </SafeAreaProvider>
     );
   return (
@@ -68,7 +68,7 @@ export default function Root() {
                 />
                 <Stack.Screen
                   name="+not-found"
-                  options={{ title: "Quesale" }}
+                  options={{ title: "QSale" }}
                 />
               </Stack>
             </SessionProvider>

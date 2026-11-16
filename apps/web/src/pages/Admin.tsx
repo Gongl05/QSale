@@ -55,7 +55,7 @@ export default function Admin() {
     <>
       <PageHeading
         title="Administración"
-        description="Gestiona los accesos del equipo. Quesale debe conservar al menos un administrador."
+        description="Gestiona los accesos del equipo. QSale debe conservar al menos un administrador."
       />
       <Field
         label="Buscar usuario por nombre o correo"

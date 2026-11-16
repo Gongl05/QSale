@@ -48,7 +48,7 @@ test('native proposal returns to the plan and cancellation prevents further cont
     if (await login.isVisible()) {
       await login.fill(email);
       await page.getByLabel('Contraseña', { exact: true }).fill('NativeFlow2026');
-      await page.getByRole('button', { name: 'Entrar a Quesale', exact: true }).click();
+      await page.getByRole('button', { name: 'Entrar a QSale', exact: true }).click();
     }
     await expect(
       page.getByText('El plan ya está cerrado o cancelado. Puedes consultar sus propuestas.', {

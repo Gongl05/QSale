@@ -56,7 +56,7 @@ export default function Admin() {
     >
       <Heading
         title="Administración"
-        description="Un administrador puede gestionar todos los planes. Quesale debe conservar al menos uno."
+        description="Un administrador puede gestionar todos los planes. QSale debe conservar al menos uno."
       />
       <Field label="Buscar usuario" value={search} onChangeText={setSearch} />
       {query.isPending ? (

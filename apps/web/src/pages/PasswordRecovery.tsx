@@ -19,7 +19,7 @@ export default function PasswordRecovery() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
-    document.title = `${resetting ? "Nueva contraseña" : "Recuperar contraseña"} · Quesale`;
+    document.title = `${resetting ? "Nueva contraseña" : "Recuperar contraseña"} · QSale`;
     if (!resetting) return;
     const previous = document.querySelector<HTMLMetaElement>(
       'meta[name="referrer"]',

@@ -924,7 +924,7 @@ export class ErrorBoundary extends Component<
       <Screen>
         <EmptyState title="No pudimos abrir esta pantalla">
           Tus datos guardados siguen en tu cuenta. Cierra y vuelve a abrir
-          Quesale.
+          QSale.
         </EmptyState>
       </Screen>
     ) : (

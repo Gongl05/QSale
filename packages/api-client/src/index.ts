@@ -230,7 +230,7 @@ export function createQSaleApi(http: AxiosInstance) {
       read<Participant[]>(`/plans/${id}/participants`, undefined, signal),
     invite: (id: number, email: string) =>
       contextual(send<Participant>('post', `/plans/${id}/participants`, { email }), {
-        404: 'Ese correo aún no tiene cuenta en Quesale. Comparte el enlace o código del plan para que se registre y se una.',
+        404: 'Ese correo aún no tiene cuenta en QSale. Comparte el enlace o código del plan para que se registre y se una.',
         409: 'Esa persona ya pertenece al grupo o tiene una invitación pendiente. Revisa El grupo.',
       }),
     acceptInvitation: (id: number) => send<Participant>('patch', `/plans/${id}/participants/me`),
@@ -274,7 +274,7 @@ export function createQSaleApi(http: AxiosInstance) {
     users: (signal?: AbortSignal) => read<User[]>('/admin/users', undefined, signal),
     updateRole: (id: number, role: User['role']) =>
       contextual(send<User>('patch', `/admin/users/${id}/role`, { role }), {
-        400: 'Quesale debe conservar al menos un administrador. Asigna ese acceso a otra persona antes de retirarlo.',
+        400: 'QSale debe conservar al menos un administrador. Asigna ese acceso a otra persona antes de retirarlo.',
       }),
   };
 }

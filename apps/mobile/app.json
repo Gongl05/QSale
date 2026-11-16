@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Quesale",
+    "name": "QSale",
     "slug": "qsale",
     "scheme": "qsale",
     "version": "1.0.0",
@@ -26,7 +26,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Quesale usa la cámara para leer códigos QR de invitación.",
+          "cameraPermission": "QSale usa la cámara para leer códigos QR de invitación.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
@@ -34,7 +34,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Quesale usa tu ubicación solo cuando la solicitas, para ayudar a elegir un punto de encuentro."
+          "locationWhenInUsePermission": "QSale usa tu ubicación solo cuando la solicitas, para ayudar a elegir un punto de encuentro."
         }
       ],
       "@react-native-community/datetimepicker"

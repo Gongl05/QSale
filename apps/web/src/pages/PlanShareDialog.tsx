@@ -26,7 +26,7 @@ export function PlanShareDialog({
     <Dialog title="Compartir invitación" onClose={onClose}>
       <p>
         Comparte el enlace o el código. Para unirse necesitarán entrar o crear
-        una cuenta de Quesale. Unirse al grupo no confirma la asistencia.
+        una cuenta de QSale. Unirse al grupo no confirma la asistencia.
       </p>
       <div className="share-code">
         <QRCodeSVG

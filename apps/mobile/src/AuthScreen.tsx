@@ -50,10 +50,10 @@ export default function AuthScreen({
         <View style={styles.row}>
           <Image
             source={require("../assets/qsale.png")}
-            accessibilityLabel="Quesale"
+            accessibilityLabel="QSale"
             style={{ width: 48, height: 48 }}
           />
-          <Text style={[styles.heading, { fontSize: 26 }]}>Quesale</Text>
+          <Text style={[styles.heading, { fontSize: 26 }]}>QSale</Text>
         </View>
         <Heading
           title={registering ? "Crear cuenta" : "Iniciar sesión"}
@@ -166,7 +166,7 @@ export default function AuthScreen({
             }
           })}
         >
-          {registering ? "Crear mi cuenta" : "Entrar a Quesale"}
+          {registering ? "Crear mi cuenta" : "Entrar a QSale"}
         </Button>
         {!registering && (
           <Button

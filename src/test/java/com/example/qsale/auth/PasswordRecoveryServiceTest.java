@@ -31,7 +31,7 @@ class PasswordRecoveryServiceTest {
 
     @BeforeEach void setup() {
         recovery = new PasswordRecoveryService(users, resets, sessions, encoder, queue, email,
-                new PublicLinks("https://quesale.test"));
+                new PublicLinks("https://qsale.test"));
         user = new User(); user.setId(7L); user.setName("Ana"); user.setEmail("ana@example.test");
     }
 
@@ -61,7 +61,7 @@ class PasswordRecoveryServiceTest {
         ArgumentCaptor<Map<String,Object>> variables = ArgumentCaptor.forClass(Map.class);
         verify(email).sendHtmlEmail(eq(user.getEmail()), anyString(), eq("email/password-reset"), variables.capture());
         String link = (String) variables.getValue().get("actionUrl");
-        assertTrue(link.startsWith("https://quesale.test/reset-password?token="));
+        assertTrue(link.startsWith("https://qsale.test/reset-password?token="));
         String token = link.substring(link.indexOf("token=") + 6);
         assertEquals(43, token.length());
         String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));

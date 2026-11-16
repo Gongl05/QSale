@@ -31,7 +31,7 @@ async function login(page: Page, email: string, mobile = false) {
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña", { exact: true }).fill(password);
   await page
-    .getByRole("button", { name: "Entrar a Quesale", exact: true })
+    .getByRole("button", { name: "Entrar a QSale", exact: true })
     .click();
 }
 

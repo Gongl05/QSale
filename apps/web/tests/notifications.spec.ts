@@ -52,7 +52,7 @@ test("notification pagination survives reload, filters and reading the last item
     );
     await page.getByLabel("Correo electrónico").fill(recipientEmail);
     await page.getByLabel("Contraseña", { exact: true }).fill(password);
-    await page.getByRole("button", { name: "Entrar a Quesale" }).click();
+    await page.getByRole("button", { name: "Entrar a QSale" }).click();
     await expect(page).toHaveURL(
       /\/notifications\?unread=true&size=10&page=2$/,
     );

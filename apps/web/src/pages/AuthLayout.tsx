@@ -5,10 +5,10 @@ import { CalendarDays, MapPin, UsersRound } from "lucide-react";
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <main className="auth-page">
-      <section className="auth-story" aria-label="Planes en grupo con Quesale">
-        <Link to="/" className="brand" aria-label="Quesale, inicio">
+      <section className="auth-story" aria-label="Planes en grupo con QSale">
+        <Link to="/" className="brand" aria-label="QSale, inicio">
           <img src="/qsale.png" alt="" />
-          <span>Quesale</span>
+          <span>QSale</span>
         </Link>
         <div className="auth-story-main">
           <h2>

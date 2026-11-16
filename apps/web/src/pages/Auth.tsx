@@ -36,9 +36,9 @@ export default function Auth() {
     resolver: zodResolver(registering ? signUpSchema : signInSchema) as never,
   });
   useEffect(() => {
-    document.title = `${registering ? "Crear cuenta" : "Iniciar sesión"} · Quesale`;
+    document.title = `${registering ? "Crear cuenta" : "Iniciar sesión"} · QSale`;
   }, [registering]);
-  if (loading) return <Loading label="Preparando Quesale…" />;
+  if (loading) return <Loading label="Preparando QSale…" />;
   if (user) return <Navigate to={returnTo} replace />;
   return (
     <AuthLayout>
@@ -111,7 +111,7 @@ export default function Auth() {
             </p>
           )}
           <Button type="submit" busy={isSubmitting}>
-            {registering ? "Crear mi cuenta" : "Entrar a Quesale"}
+            {registering ? "Crear mi cuenta" : "Entrar a QSale"}
             <ArrowRight size={18} />
           </Button>
         </form>

@@ -239,7 +239,7 @@ test("server pagination, URL filters, mobile layout and protected navigation", a
   await expect(page).toHaveURL(/\/login\?returnTo=/);
   await page.getByLabel("Correo electrónico").fill(paginationEmail);
   await page.getByLabel("Contraseña", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Entrar a Quesale" }).click();
+  await page.getByRole("button", { name: "Entrar a QSale" }).click();
   await expect(page.getByRole("article")).toHaveCount(10);
   await page.getByRole("button", { name: "Página siguiente" }).click();
   await expect(page).toHaveURL(/page=2/);

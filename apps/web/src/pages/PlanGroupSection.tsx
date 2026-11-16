@@ -47,7 +47,7 @@ export function PlanGroupSection({
       {manage && (
         <>
           <p className="form-hint">
-            Invita por correo a alguien que ya tenga cuenta en Quesale. Para
+            Invita por correo a alguien que ya tenga cuenta en QSale. Para
             personas nuevas,{" "}
             <button className="text-button" type="button" onClick={onShare}>
               comparte el enlace o el código

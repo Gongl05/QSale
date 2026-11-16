@@ -75,7 +75,7 @@ public class PasswordRecoveryService {
         reset.setRequestsInWindow(reset.getRequestsInWindow() + 1);
         resets.save(reset);
         // The durable job holds only the address; the raw token exists only during delivery.
-        if (!email.sendHtmlEmail(user.getEmail(), "Recupera tu cuenta de Quesale", "email/password-reset",
+        if (!email.sendHtmlEmail(user.getEmail(), "Recupera tu cuenta de QSale", "email/password-reset",
                 Map.of("name", user.getName(), "actionUrl", links.passwordReset(token), "logoUrl", links.logo()))) {
             throw new ExternalServiceException("Password recovery email could not be delivered");
         }
@@ -97,7 +97,7 @@ public class PasswordRecoveryService {
         user.setPassword(encoder.encode(password));
         reset.setUsedAt(now);
         sessions.revokeForUser(userId, now);
-        queue.enqueue("EMAIL", new JobPayload(null, null, user.getEmail(), "Contraseña actualizada en Quesale",
+        queue.enqueue("EMAIL", new JobPayload(null, null, user.getEmail(), "Contraseña actualizada en QSale",
                 "email/password-changed", Map.of("name", user.getName(), "actionUrl", links.plans(), "logoUrl", links.logo())));
     }
 

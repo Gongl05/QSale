@@ -133,7 +133,7 @@ export default function JoinScreen() {
                   setError("");
                 } else
                   setError(
-                    "Este QR no corresponde a una invitación de Quesale. Solicita el código a quien organiza.",
+                    "Este QR no corresponde a una invitación de QSale. Solicita el código a quien organiza.",
                   );
               }}
             />

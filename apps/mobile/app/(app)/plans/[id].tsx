@@ -204,7 +204,7 @@ export default function PlanDetail() {
             icon="share-2"
             onPress={() =>
               void Share.share({
-                message: `Únete a “${plan.name}” en Quesale. Código: ${plan.inviteCode}\n${link}`,
+                message: `Únete a “${plan.name}” en QSale. Código: ${plan.inviteCode}\n${link}`,
               }).catch(() =>
                 toast("No pudimos abrir las opciones para compartir.", true),
               )
@@ -334,7 +334,7 @@ export default function PlanDetail() {
                 maxLength={150}
               />
               <Text style={styles.muted}>
-                Este correo debe tener cuenta en Quesale. Si aún no la tiene,
+                Este correo debe tener cuenta en QSale. Si aún no la tiene,
                 comparte el enlace del plan.
               </Text>
               <Button

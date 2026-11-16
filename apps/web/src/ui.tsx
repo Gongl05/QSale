@@ -590,7 +590,7 @@ export class ErrorBoundary extends Component<
         <EmptyState
           title="Esta pantalla necesita volver a cargar"
           action={
-            <Button onClick={() => location.reload()}>Recargar Quesale</Button>
+            <Button onClick={() => location.reload()}>Recargar QSale</Button>
           }
         >
           Tus cambios guardados siguen en tu cuenta.

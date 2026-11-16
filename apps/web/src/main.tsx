@@ -98,7 +98,7 @@ function AppShell() {
     const content = document.getElementById("content");
     const updateTitle = () => {
       const heading = content?.querySelector("h1")?.textContent?.trim();
-      document.title = heading ? `${heading} · Quesale` : "Quesale";
+      document.title = heading ? `${heading} · QSale` : "QSale";
     };
     updateTitle();
     const observer = new MutationObserver(updateTitle);
@@ -190,9 +190,9 @@ function AppShell() {
             <X size={20} />
           </button>
         )}
-        <Link className="brand" to="/plans" aria-label="Quesale, mis planes">
+        <Link className="brand" to="/plans" aria-label="QSale, mis planes">
           <img src="/qsale.png" alt="" />
-          <span>Quesale</span>
+          <span>QSale</span>
         </Link>
         <p className="brand-caption">Encuéntrense aquí</p>
         <nav aria-label="Navegación principal">
@@ -267,7 +267,7 @@ function AppShell() {
             <Menu />
           </button>
           <nav aria-label="Ruta de navegación">
-            <Link to="/plans">Quesale</Link>
+            <Link to="/plans">QSale</Link>
             <ChevronRight size={14} />
             {breadcrumb ? (
               <>
@@ -282,7 +282,7 @@ function AppShell() {
                   "/notifications": "Notificaciones",
                   "/profile": "Mi perfil",
                   "/admin": "Administración",
-                }[location.pathname] ?? "Quesale"}
+                }[location.pathname] ?? "QSale"}
               </span>
             )}
           </nav>
@@ -333,7 +333,7 @@ function RouteFailure() {
 const router = createBrowserRouter([
   {
     errorElement: <RouteFailure />,
-    hydrateFallbackElement: <Loading label="Abriendo Quesale…" />,
+    hydrateFallbackElement: <Loading label="Abriendo QSale…" />,
     children: [
       { path: "/login", lazy: lazyPage(() => import("./pages/Auth")) },
       { path: "/register", lazy: lazyPage(() => import("./pages/Auth")) },
