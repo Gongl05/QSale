@@ -37,6 +37,9 @@ class CoordinationFlowIntegrationTest extends AbstractContainerBaseTest {
     @Autowired
     com.example.qsale.notification.domain.NotificationService notifications;
 
+    @Autowired
+    com.example.qsale.jobs.BackgroundJobRepository backgroundJobs;
+
     @MockitoBean
     EmailService emailService;
 
@@ -106,6 +109,38 @@ class CoordinationFlowIntegrationTest extends AbstractContainerBaseTest {
                 )
             ).size()
         );
+    }
+
+    @Test
+    void profileLocationChangesRefreshTravelEstimatesAfterThePlanIsConfirmed() throws Exception {
+        Fixture f = closed(2);
+        mvc.perform(auth(put("/api/v1/users/me"), f.owner())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Organizer\",\"location\":{\"latitude\":-12.1,\"longitude\":-77.0}}"))
+            .andExpect(status().isOk());
+        awaitPlaceEstimate(f, "READY");
+        mvc.perform(auth(put("/api/v1/users/me"), f.owner())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Organizer\",\"removeLocation\":true}"))
+            .andExpect(status().isOk());
+        awaitPlaceEstimate(f, "UNAVAILABLE");
+        mvc.perform(auth(get("/api/v1/plans/{id}", f.id()), f.owner()))
+            .andExpect(jsonPath("$.status").value("CLOSED"))
+            .andExpect(jsonPath("$.agreementVersion").value(1));
+    }
+
+    private void awaitPlaceEstimate(Fixture f, String expected) throws Exception {
+        for (int attempt = 0; attempt < 150; attempt++) {
+            String result = body(auth(get("/api/v1/plans/{id}/options", f.id()), f.owner()), 200);
+            List<String> states = JsonPath.read(result, "$[?(@.type == 'PLACE')].estimateStatus");
+            if (!states.isEmpty() && states.stream().allMatch(expected::equals)) return;
+            Thread.sleep(100);
+        }
+        String jobs = backgroundJobs.findAll().stream()
+                .filter(job -> job.getType().startsWith("TRAVEL"))
+                .map(job -> job.getType() + ":" + job.getStatus() + ":" + job.getAttempts() + ":" + job.getLastError())
+                .collect(java.util.stream.Collectors.joining(", "));
+        fail("Travel estimates did not become " + expected + " after changing the profile location. Jobs: " + jobs);
     }
 
     @Test

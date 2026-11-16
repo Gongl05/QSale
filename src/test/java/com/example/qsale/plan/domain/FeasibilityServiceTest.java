@@ -1,6 +1,8 @@
 package com.example.qsale.plan.domain;
 
 import com.example.qsale.availability.infrastructure.AvailabilityRepository;
+import com.example.qsale.availability.domain.Availability;
+import com.example.qsale.user.domain.User;
 import com.example.qsale.commitment.domain.CommitmentStatus;
 import com.example.qsale.commitment.infrastructure.CommitmentResponseRepository;
 import com.example.qsale.option.domain.OptionType;
@@ -108,6 +110,21 @@ class FeasibilityServiceTest {
         option.setAvgDistanceKm(10.0);
 
         assertEquals(50, feasibilityService.calculateOptionScore(option, 1, 2));
+    }
+
+    @Test
+    void expiredAvailabilityDoesNotImproveThePlansViability() {
+        when(participantRepository.countByPlanIdAndStatus(1L, ParticipationStatus.JOINED)).thenReturn(2L);
+        User user = new User();
+        user.setId(1L);
+        Availability expired = new Availability();
+        expired.setUser(user);
+        expired.setAvailableDate(java.time.LocalDate.now(java.time.ZoneId.of("America/Lima")).minusDays(1));
+        when(availabilityRepository.findByPlanId(1L)).thenReturn(List.of(expired));
+
+        feasibilityService.updateFeasibility(plan);
+
+        assertEquals(0, plan.getFeasibilityScore());
     }
 
     private void stubParticipantAndAvailabilityCounts() {

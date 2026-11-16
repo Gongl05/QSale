@@ -53,7 +53,7 @@ public class CommitmentService {
         if (plan.getStatus() == PlanStatus.CLOSED && before >= plan.getMinParticipants() && after < plan.getMinParticipants()) {
             notificationService.notifyOrganizer(plan, NotificationType.ATTENDANCE_BELOW_MINIMUM,
                     "El plan " + plan.getName() + " tiene " + after + " confirmaciones; necesita " + plan.getMinParticipants()
-                    + ". El día y lugar se conservan. Puedes invitar a alguien o proponer una reprogramación.");
+                    + ". El día y lugar se conservan. Puedes proponer una reprogramación o reabrir el plan para invitar a alguien.");
         }
         eventPublisher.publishEvent(new PlanChangedEvent(this, plan.getId()));
         return modelMapper.map(commitment, CommitmentResponseDto.class);

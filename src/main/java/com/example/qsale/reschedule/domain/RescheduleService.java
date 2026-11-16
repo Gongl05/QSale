@@ -1,31 +1,18 @@
 package com.example.qsale.reschedule.domain;
 
-import com.example.qsale.commitment.domain.*;
-import com.example.qsale.commitment.infrastructure.CommitmentResponseRepository;
 import com.example.qsale.exceptions.*;
-import com.example.qsale.location.domain.Location;
-import com.example.qsale.location.domain.TravelEstimateStatus;
-import com.example.qsale.location.dto.LocationDto;
 import com.example.qsale.notification.domain.*;
-import com.example.qsale.option.domain.*;
-import com.example.qsale.option.events.PlaceOptionCreatedEvent;
-import com.example.qsale.option.infrastructure.PlanOptionRepository;
 import com.example.qsale.participant.domain.*;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
 import com.example.qsale.plan.domain.*;
 import com.example.qsale.reschedule.dto.RescheduleDtos;
 import com.example.qsale.reschedule.infrastructure.*;
 import com.example.qsale.user.domain.*;
-import com.example.qsale.vote.domain.Vote;
-import com.example.qsale.vote.infrastructure.VoteRepository;
 import java.time.*;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,12 +26,9 @@ public class RescheduleService {
     private final PlanAccessService access;
     private final UserService users;
     private final PlanParticipantRepository participants;
-    private final PlanOptionRepository options;
-    private final CommitmentResponseRepository commitments;
-    private final VoteRepository votes;
     private final NotificationService notifications;
-    private final ModelMapper mapper;
-    private final ApplicationEventPublisher events;
+    private final RescheduleProposalFactory factory;
+    private final RescheduleAgreementService agreements;
 
     @Value("${plans.time-zone:America/Lima}")
     private String timeZone = "America/Lima";
@@ -53,7 +37,7 @@ public class RescheduleService {
     @Transactional
     public List<RescheduleDtos.Response> list(Long planId) {
         User user = users.getCurrentUser();
-        Plan plan = access.lockAsMember(planId, user);
+        access.lockAsMember(planId, user);
         Set<Long> electorate = electorate(planId);
         return proposals
             .findByPlanIdOrderByIdDesc(planId)
@@ -72,83 +56,15 @@ public class RescheduleService {
         Plan plan = access.lockAsMember(planId, user);
         access.requireJoined(planId, user);
         requireConfirmed(plan);
-        PlanOption currentDate = selected(planId, OptionType.DATE);
-        PlanOption currentPlace = selected(planId, OptionType.PLACE);
-        LocalDate day = request.date() == null ? currentDate.getEffectiveDate() : request.date();
-        if (
-            day == null || day.isBefore(LocalDate.now(ZoneId.of(timeZone)))
-        ) throw new InvalidOperationException("Choose today or a future day");
-        if (
-            request.time() != null &&
-            !day.atTime(request.time()).atZone(ZoneId.of(timeZone)).toInstant().isAfter(Instant.now())
-        ) throw new InvalidOperationException("Choose a future time or leave it unspecified");
-        if (
-            request.location() != null && request.placeOptionId() != null
-        ) throw new InvalidOperationException("Choose an existing place or a new location, not both");
-        RescheduleProposal proposal = new RescheduleProposal();
-        proposal.setPlan(plan);
-        proposal.setCreatedBy(user);
-        proposal.setBaseAgreementVersion(plan.getAgreementVersion());
-        proposal.setProposedDate(day);
-        proposal.setProposedTime(request.time());
-        preserveDuration(proposal, currentDate);
-        proposal.setReason(request.reason());
-        if (request.location() != null) {
-            if (
-                request.placeLabel() == null || request.placeLabel().isBlank()
-            ) throw new InvalidOperationException("A new place needs a name");
-            proposal.setPlaceLabel(request.placeLabel().strip());
-            copyLocation(proposal, request.location());
-        } else {
-            PlanOption place =
-                request.placeOptionId() == null
-                    ? currentPlace
-                    : options
-                          .findByIdAndPlanId(request.placeOptionId(), planId)
-                          .filter(
-                              option -> option.getType() == OptionType.PLACE && option.getLocation() != null
-                          )
-                          .orElseThrow(() -> new InvalidOperationException("Choose a place from this plan"));
-            proposal.setPlaceOptionId(place.getId());
-            proposal.setPlaceLabel(place.getLabel());
-            copyLocation(proposal, mapper.map(place.getLocation(), LocationDto.class));
-        }
-        boolean sameDay = day.equals(currentDate.getEffectiveDate());
-        LocalTime currentTime =
-            currentDate.getStartsAt() == null ? null : currentDate.getStartsAt().toLocalTime();
-        boolean samePlace = Objects.equals(proposal.getPlaceOptionId(), currentPlace.getId());
-        if (
-            sameDay && Objects.equals(request.time(), currentTime) && samePlace
-        ) throw new InvalidOperationException("The proposal must change the day, time or place");
-        Instant expiry =
-            request.expiresAt() == null
-                ? day.plusDays(1).atStartOfDay(ZoneId.of(timeZone)).toInstant()
-                : request.expiresAt();
-        Instant lastPossibleVote =
-            request.time() == null
-                ? day.plusDays(1).atStartOfDay(ZoneId.of(timeZone)).toInstant()
-                : day.atTime(request.time()).atZone(ZoneId.of(timeZone)).toInstant();
-        if (expiry.isAfter(lastPossibleVote)) expiry = lastPossibleVote;
-        if (!expiry.isAfter(Instant.now())) throw new InvalidOperationException(
-            "The voting deadline must be in the future"
-        );
-        proposal.setExpiresAt(expiry);
+        RescheduleProposal proposal = factory.create(plan, user, request);
         proposals.saveAndFlush(proposal);
         saveVote(proposal, user, true);
         Set<Long> electorate = electorate(planId);
         resolve(proposal, electorate);
-        notifications.notifyJoinedParticipants(
-            plan,
-            NotificationType.RESCHEDULE_PROPOSED,
-            user.getName() +
-                " propuso cambiar " +
-                plan.getName() +
-                " al " +
-                day +
-                " en " +
-                proposal.getPlaceLabel() +
-                ". Vota si asistirías con ese cambio; el acuerdo actual se conserva."
-        );
+        notifications.notifyJoinedParticipants(plan, NotificationType.RESCHEDULE_PROPOSED,
+                user.getName() + " propuso cambiar " + plan.getName() + " al " + proposal.getProposedDate()
+                + " en " + proposal.getPlaceLabel()
+                + ". Vota si asistirías con ese cambio; el acuerdo actual se conserva.");
         return response(proposal, user, electorate);
     }
 
@@ -175,93 +91,16 @@ public class RescheduleService {
         RescheduleProposal proposal = proposal(planId, proposalId);
         Set<Long> electorate = electorate(planId);
         resolve(proposal, electorate);
-        if (proposal.getStatus() != RescheduleStatus.APPROVED) throw new InvalidOperationException(
-            "A majority and the minimum number of attendees must support this proposal"
-        );
-        if (
-            proposal.getProposedDate().isBefore(LocalDate.now(ZoneId.of(timeZone)))
-        ) throw new InvalidOperationException("The proposed day has already passed");
-        options.findByPlanId(planId).forEach(option -> option.setSelected(false));
-        PlanOption day = new PlanOption();
-        day.setPlan(plan);
-        day.setProposedBy(proposal.getCreatedBy());
-        day.setType(OptionType.DATE);
-        day.setLabel("Nueva fecha: " + proposal.getProposedDate());
-        day.setStartsOn(proposal.getProposedDate());
-        day.setEndsOn(proposal.getProposedEndDate());
-        if (proposal.getProposedEndDate() != null && proposal.getProposedEndTime() != null) day.setEndsAt(
-            proposal.getProposedEndDate().atTime(proposal.getProposedEndTime())
-        );
-        if (proposal.getProposedTime() != null) day.setStartsAt(
-            proposal.getProposedDate().atTime(proposal.getProposedTime())
-        );
-        day.setSelected(true);
-        plan.addOption(day);
-        options.saveAndFlush(day);
-        PlanOption place =
-            proposal.getPlaceOptionId() == null
-                ? null
-                : options.findByIdAndPlanId(proposal.getPlaceOptionId(), planId).orElse(null);
-        if (place == null) {
-            place = new PlanOption();
-            place.setPlan(plan);
-            place.setProposedBy(proposal.getCreatedBy());
-            place.setType(OptionType.PLACE);
-            place.setLabel(proposal.getPlaceLabel());
-            place.setLocation(mapper.map(location(proposal), Location.class));
-            place.setEstimateStatus(TravelEstimateStatus.PENDING);
-            plan.addOption(place);
-            options.saveAndFlush(place);
-            events.publishEvent(new PlaceOptionCreatedEvent(this, place.getId()));
-        }
-        place.setSelected(true);
-        Map<Long, RescheduleVote> choices = ballots
-            .findByProposalId(proposalId)
-            .stream()
-            .collect(Collectors.toMap(ballot -> ballot.getUser().getId(), Function.identity()));
-        for (PlanParticipant member : participants.findByPlanId(planId)) {
-            if (member.getStatus() != ParticipationStatus.JOINED) continue;
-            RescheduleVote choice = choices.get(member.getUser().getId());
-            CommitmentStatus status =
-                choice == null
-                    ? CommitmentStatus.INTERESTED
-                    : choice.isAccepted()
-                      ? CommitmentStatus.CONFIRMED
-                      : CommitmentStatus.CANT_GO;
-            CommitmentResponse commitment = commitments
-                .findByPlanIdAndUserId(planId, member.getUser().getId())
-                .orElseGet(() -> new CommitmentResponse(plan, member.getUser(), status));
-            commitment.setStatus(status);
-            commitment.setRespondedAt(LocalDateTime.now());
-            commitments.save(commitment);
-            if (status == CommitmentStatus.CONFIRMED) {
-                votes.save(new Vote(day, member.getUser()));
-                if (!votes.existsByOptionIdAndUserId(place.getId(), member.getUser().getId())) votes.save(
-                    new Vote(place, member.getUser())
-                );
-            }
-        }
-        plan.setTentativeStartDate(proposal.getProposedDate());
-        plan.setTentativeEndDate(proposal.getProposedEndDate());
-        plan.setAgreementVersion(plan.getAgreementVersion() + 1);
-        plan.setClosedAt(LocalDateTime.now());
+        requireApplicable(proposal);
+        agreements.apply(plan, proposal);
         proposal.setStatus(RescheduleStatus.APPLIED);
-        proposals
-            .findByPlanIdOrderByIdDesc(planId)
-            .stream()
-            .filter(other -> other.getStatus().isActive())
-            .forEach(other -> other.setStatus(RescheduleStatus.SUPERSEDED));
-        notifications.notifyJoinedParticipants(
-            plan,
-            NotificationType.RESCHEDULE_APPLIED,
-            "El organizador reprogramó " +
-                plan.getName() +
-                " para el " +
-                proposal.getProposedDate() +
-                " en " +
-                proposal.getPlaceLabel() +
-                ". Los votos afirmativos ya cuentan como confirmación. Revisa tu asistencia."
-        );
+        proposals.findByPlanIdOrderByIdDesc(planId).stream()
+                .filter(other -> other.getStatus().isActive())
+                .forEach(other -> other.setStatus(RescheduleStatus.SUPERSEDED));
+        notifications.notifyJoinedParticipants(plan, NotificationType.RESCHEDULE_APPLIED,
+                "El organizador reprogramó " + plan.getName() + " para el " + proposal.getProposedDate()
+                + " en " + proposal.getPlaceLabel()
+                + ". Los votos afirmativos ya cuentan como confirmación. Revisa tu asistencia.");
         return response(proposal, user, electorate);
     }
 
@@ -282,32 +121,10 @@ public class RescheduleService {
         return response(proposal, user, electorate);
     }
 
-    private void preserveDuration(RescheduleProposal proposal, PlanOption currentDate) {
-        LocalDate endDay = currentDate.getEffectiveEndDate();
-        if (endDay == null) return;
-        long dayShift = java.time.temporal.ChronoUnit.DAYS.between(
-            currentDate.getEffectiveDate(),
-            proposal.getProposedDate()
-        );
-        if (
-            currentDate.getStartsAt() != null &&
-            currentDate.getEndsAt() != null &&
-            proposal.getProposedTime() != null
-        ) {
-            Duration duration = Duration.between(currentDate.getStartsAt(), currentDate.getEndsAt());
-            LocalDateTime end = proposal.getProposedDate().atTime(proposal.getProposedTime()).plus(duration);
-            proposal.setProposedEndDate(end.toLocalDate());
-            proposal.setProposedEndTime(end.toLocalTime());
-        } else proposal.setProposedEndDate(endDay.plusDays(dayShift));
-    }
-
     private void resolve(RescheduleProposal proposal, Set<Long> electorate) {
         if (!proposal.getStatus().isActive()) return;
         Plan plan = proposal.getPlan();
-        if (
-            plan.getStatus() != PlanStatus.CLOSED ||
-            proposal.getBaseAgreementVersion() != plan.getAgreementVersion()
-        ) {
+        if (plan.getStatus() != PlanStatus.CLOSED || proposal.getBaseAgreementVersion() != plan.getAgreementVersion()) {
             proposal.setStatus(RescheduleStatus.SUPERSEDED);
             return;
         }
@@ -316,61 +133,39 @@ public class RescheduleService {
             return;
         }
         List<RescheduleVote> votes = effectiveVotes(proposal, electorate);
-        long yes = votes.stream().filter(RescheduleVote::isAccepted).count(),
-            no = votes.size() - yes;
-        if (no > electorate.size() / 2) {
-            proposal.setStatus(RescheduleStatus.REJECTED);
-            notifications.notifyJoinedParticipants(
-                plan,
-                NotificationType.RESCHEDULE_REJECTED,
-                "La propuesta del " +
-                    proposal.getProposedDate() +
-                    " para " +
-                    plan.getName() +
-                    " fue rechazada por mayoría. El acuerdo vigente se conserva."
-            );
-        } else proposal.setStatus(
-            yes > electorate.size() / 2 && yes >= plan.getMinParticipants()
-                ? RescheduleStatus.APPROVED
-                : RescheduleStatus.VOTING
-        );
+        long yes = votes.stream().filter(RescheduleVote::isAccepted).count();
+        if (votes.size() - yes > electorate.size() / 2) {
+            reject(proposal);
+        } else {
+            proposal.setStatus(yes > electorate.size() / 2 && yes >= plan.getMinParticipants()
+                    ? RescheduleStatus.APPROVED : RescheduleStatus.VOTING);
+        }
     }
 
-    private RescheduleDtos.Response response(RescheduleProposal p, User user, Set<Long> electorate) {
-        List<RescheduleVote> votes = effectiveVotes(p, electorate);
+    private void reject(RescheduleProposal proposal) {
+        proposal.setStatus(RescheduleStatus.REJECTED);
+        notifications.notifyJoinedParticipants(proposal.getPlan(), NotificationType.RESCHEDULE_REJECTED,
+                "La propuesta del " + proposal.getProposedDate() + " para " + proposal.getPlan().getName()
+                + " fue rechazada por mayoría. El acuerdo vigente se conserva.");
+    }
+
+    private RescheduleDtos.Response response(RescheduleProposal proposal, User user, Set<Long> electorate) {
+        List<RescheduleVote> votes = effectiveVotes(proposal, electorate);
         long yes = votes.stream().filter(RescheduleVote::isAccepted).count();
-        Boolean mine = votes
-            .stream()
-            .filter(v -> v.getUser().getId().equals(user.getId()))
-            .map(RescheduleVote::isAccepted)
-            .findFirst()
-            .orElse(null);
+        Boolean mine = votes.stream().filter(vote -> vote.getUser().getId().equals(user.getId()))
+                .map(RescheduleVote::isAccepted).findFirst().orElse(null);
+        boolean organizer = isOrganizer(proposal.getPlan(), user);
         return new RescheduleDtos.Response(
-            p.getId(),
-            p.getPlan().getId(),
-            p.getCreatedBy().getId(),
-            p.getCreatedBy().getName(),
-            p.getBaseAgreementVersion(),
-            p.getProposedDate(),
-            p.getProposedTime(),
-            p.getProposedEndDate(),
-            p.getProposedEndTime(),
-            p.getPlaceOptionId(),
-            p.getPlaceLabel(),
-            location(p),
-            p.getReason(),
-            p.getStatus(),
-            yes,
-            votes.size() - yes,
-            electorate.size(),
-            Math.max(electorate.size() / 2 + 1, p.getPlan().getMinParticipants()),
-            mine,
-            p.getStatus() == RescheduleStatus.APPROVED && isOrganizer(p.getPlan(), user),
-            p.getStatus().isActive() &&
-                (isOrganizer(p.getPlan(), user) || p.getCreatedBy().getId().equals(user.getId())),
-            p.getCreatedAt(),
-            p.getExpiresAt()
-        );
+                proposal.getId(), proposal.getPlan().getId(),
+                proposal.getCreatedBy().getId(), proposal.getCreatedBy().getName(),
+                proposal.getBaseAgreementVersion(), proposal.getProposedDate(), proposal.getProposedTime(),
+                proposal.getProposedEndDate(), proposal.getProposedEndTime(),
+                proposal.getPlaceOptionId(), proposal.getPlaceLabel(), RescheduleAgreementService.location(proposal),
+                proposal.getReason(), proposal.getStatus(), yes, votes.size() - yes, electorate.size(),
+                Math.max(electorate.size() / 2 + 1, proposal.getPlan().getMinParticipants()), mine,
+                proposal.getStatus() == RescheduleStatus.APPROVED && organizer,
+                proposal.getStatus().isActive() && (organizer || proposal.getCreatedBy().getId().equals(user.getId())),
+                proposal.getCreatedAt(), proposal.getExpiresAt());
     }
 
     private List<RescheduleVote> effectiveVotes(RescheduleProposal proposal, Set<Long> electorate) {
@@ -408,15 +203,13 @@ public class RescheduleService {
         ballots.saveAndFlush(ballot);
     }
 
-    private PlanOption selected(Long planId, OptionType type) {
-        return options
-            .findByPlanIdAndType(planId, type)
-            .stream()
-            .filter(PlanOption::isSelected)
-            .findFirst()
-            .orElseThrow(() ->
-                new InvalidOperationException("Reopen the plan to choose its missing day or place")
-            );
+    private void requireApplicable(RescheduleProposal proposal) {
+        if (proposal.getStatus() != RescheduleStatus.APPROVED) {
+            throw new InvalidOperationException("A majority and the minimum number of attendees must support this proposal");
+        }
+        if (proposal.getProposedDate().isBefore(LocalDate.now(ZoneId.of(timeZone)))) {
+            throw new InvalidOperationException("The proposed day has already passed");
+        }
     }
 
     private void requireConfirmed(Plan plan) {
@@ -435,17 +228,4 @@ public class RescheduleService {
         return user.isAdmin() || plan.getCreator().getId().equals(user.getId());
     }
 
-    private void copyLocation(RescheduleProposal proposal, LocationDto location) {
-        proposal.setLatitude(location.getLatitude());
-        proposal.setLongitude(location.getLongitude());
-        proposal.setAddress(location.getAddress());
-    }
-
-    private LocationDto location(RescheduleProposal proposal) {
-        LocationDto location = new LocationDto();
-        location.setLatitude(proposal.getLatitude());
-        location.setLongitude(proposal.getLongitude());
-        location.setAddress(proposal.getAddress());
-        return location;
-    }
 }
