@@ -1,3 +1,4 @@
+import { apiURL, webURL, mobileURL, mobilePort } from '../../tests/environment';
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
@@ -6,7 +7,7 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 15_000 },
   use: {
-    baseURL: 'http://127.0.0.1:8081',
+    baseURL: mobileURL,
     ...devices['Desktop Chrome'],
     viewport: { width: 390, height: 844 },
     trace: 'retain-on-failure',
@@ -14,14 +15,14 @@ export default defineConfig({
     actionTimeout: 15_000,
   },
   webServer: {
-    command: 'npx expo start --web --port 8081',
+    command: `npx expo start --web --port ${mobilePort}`,
     cwd: '.',
-    url: 'http://127.0.0.1:8081',
+    url: mobileURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      EXPO_PUBLIC_API_URL: 'http://127.0.0.1:19080/api/v1',
-      EXPO_PUBLIC_WEB_URL: 'http://127.0.0.1:5173',
+      EXPO_PUBLIC_API_URL: apiURL,
+      EXPO_PUBLIC_WEB_URL: webURL,
     },
   },
 });

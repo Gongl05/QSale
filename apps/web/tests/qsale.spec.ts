@@ -1,3 +1,4 @@
+import { apiURL } from '../../../tests/environment';
 import { test, expect, type Page } from '@playwright/test';
 
 const stamp = Date.now();
@@ -28,7 +29,7 @@ test('two people organize, vote, confirm and close a plan through the real API',
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await register(page, 'Ana del grupo', emailA);
-  const session = await request.post('http://127.0.0.1:19080/api/v1/auth/signin', {
+  const session = await request.post(apiURL + '/auth/signin', {
     data: { email: emailA, password },
   });
   tokenA = (await session.json()).token;
@@ -137,7 +138,7 @@ test('server pagination, URL filters, mobile layout and protected navigation', a
   page,
   request,
 }, testInfo) => {
-  const registered = await request.post('http://127.0.0.1:19080/api/v1/auth/signup', {
+  const registered = await request.post(apiURL + '/auth/signup', {
     data: {name:'Pagination reader',email:paginationEmail,password},
   });
   expect(registered.status()).toBe(201);
@@ -155,7 +156,7 @@ test('server pagination, URL filters, mobile layout and protected navigation', a
     'Cena de fin de ciclo',
     'Caminata frente al mar',
   ].entries()) {
-    const result = await request.post('http://127.0.0.1:19080/api/v1/plans', {
+    const result = await request.post(apiURL + '/plans', {
       headers: { Authorization: 'Bearer ' + paginationToken },
       data: {
         name,
@@ -222,10 +223,10 @@ test('server pagination, URL filters, mobile layout and protected navigation', a
 test.afterAll(async ({ request }) => {
   if (paginationToken)
     for (const id of extraPlans)
-      await request.delete('http://127.0.0.1:19080/api/v1/plans/' + id, {
+      await request.delete(apiURL + '/plans/' + id, {
         headers: { Authorization: 'Bearer ' + paginationToken },
       });
-  if (tokenA && planId) await request.delete('http://127.0.0.1:19080/api/v1/plans/' + planId, {
+  if (tokenA && planId) await request.delete(apiURL + '/plans/' + planId, {
     headers: { Authorization: 'Bearer ' + tokenA },
   });
 });

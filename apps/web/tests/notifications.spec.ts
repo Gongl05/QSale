@@ -1,10 +1,11 @@
+import { apiURL } from '../../../tests/environment';
 import { test, expect } from '@playwright/test';
 
 test('notification pagination survives reload, filters and reading the last item', async ({
   page,
   request,
 }) => {
-  const api = 'http://127.0.0.1:19080/api/v1';
+  const api = apiURL;
   const stamp = Date.now();
   const password = 'NotificationTest2026';
   const recipientEmail = `notifications.reader.${stamp}@qsale.test`;

@@ -149,7 +149,7 @@ Una falla de correo conserva el aviso dentro de QSale. Un administrador consulta
 
 ## 8. GitHub & Management
 
-Las tareas se trabajan en ramas y PR por corrección, con commits descriptivos en inglés y validación previa. Los workflows comprueban Maven, TypeScript, unitarias, build, paquetes nativos y recorridos aislados. El fork `Adrian0raffo/QSale` permite validar con esa cuenta; la entrega continúa en `Gongl05/QSale`. Las ejecuciones no se trasladan entre repositorios: se enlaza su evidencia en el PR. El bloqueo de facturación del propietario original requiere soporte. No se acredita uso de Projects/milestones sin evidencia de su utilización.
+El trabajo pendiente se registra en [issues](https://github.com/Gongl05/QSale/issues?q=is%3Aissue+label%3Aaudit) y el [milestone de auditoría](https://github.com/Gongl05/QSale/milestone/1). El PR #20 tuvo revisión y correcciones antes del merge. Los workflows comprueban Maven, TypeScript, unitarias, build, paquetes nativos y recorridos aislados. El fork `Adrian0raffo/QSale` tiene ejecuciones exitosas enlazadas en el PR; no sustituyen las del repositorio de entrega. Actions en `Gongl05/QSale` sigue bloqueado por facturación y requiere respuesta de soporte.
 
 ## 9. Ejecución local y despliegue
 
@@ -165,7 +165,7 @@ La web abre en `http://127.0.0.1:5173`. Configura `API_URL=http://127.0.0.1:8080
 
 Variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `MAPS_API_KEY`, `RESEND_API_KEY`, `MAIL_FROM` y `PLANS_TIME_ZONE`. AWS usa `SPRING_DATASOURCE_URL` hacia RDS con TLS y `SHOW_SQL=false`. El backend emplea el Dockerfile raíz; la web, `apps/web/Dockerfile`, puerto 3001 y HTTPS.
 
-Validación: `./mvnw verify`, `npm run check`, `npm test`, `npm run build:web`, `npm run test:web` y `npm run test:mobile-form`. Los recorridos necesitan API temporal en 19080, PostgreSQL y correo local; nunca producción. Desde móvil, `npx expo-doctor` y `npx expo export --platform android --platform ios --output-dir dist` validan configuración y paquetes, sin certificar sensores, permisos o SecureStore físicos.
+Validación: `./mvnw verify`, `npm run check`, `npm test`, `npm run build:web`, `npm run test:web` y `npm run test:mobile-form`. Los recorridos necesitan API temporal en 19080, PostgreSQL y correo local; nunca producción. Para otra pila local, usa `QSALE_TEST_API_URL`, `QSALE_TEST_WEB_PORT`, `QSALE_TEST_MOBILE_PORT` y `QSALE_TEST_SESSION_PORT`. Desde móvil, `npx expo-doctor` y `npx expo export --platform android --platform ios --output-dir dist` validan configuración y paquetes, sin certificar sensores, permisos o SecureStore físicos.
 
 [Web documentada](https://web.98.94.89.19.sslip.io), [API](https://api.98.94.89.19.sslip.io/actuator/health) y [Expo anterior](https://expo.dev/accounts/gonzagl05/projects/qsale/updates/dc186f21-174e-4b8a-95c4-02d23966730a) dependen de la disponibilidad de AWS y la IP vigente. Expo corresponde a `f40ce94`; las correcciones requieren nuevo despliegue y publicación. Antes de evaluar, comprobar migraciones, JWT, CORS y un flujo con dos cuentas desde otra red. Las pruebas locales no certifican latencia pública ni disponibilidad continua.
 

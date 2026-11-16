@@ -1,3 +1,4 @@
+import { mobileURL, apiOrigin } from '../../../tests/environment';
 import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 
 // Browser-only bridge; hardware permissions and SecureStore require a real device.
@@ -9,9 +10,9 @@ export async function localApiBridge(
   await page.route('**/api/v1/**', async (route) => {
     const req = route.request();
     const target = new URL(req.url());
-    if (target.port !== '19080') return route.abort();
+    if (target.origin !== apiOrigin) return route.abort();
     const cors = {
-      'access-control-allow-origin': 'http://127.0.0.1:8081',
+      'access-control-allow-origin': mobileURL,
       'access-control-allow-headers': 'authorization,content-type',
       'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     };
@@ -20,7 +21,7 @@ export async function localApiBridge(
     delete headers.origin;
     delete headers.host;
     const response = await request.fetch(
-      'http://127.0.0.1:19080' + target.pathname + target.search,
+      apiOrigin + target.pathname + target.search,
       { method: req.method(), headers, data: req.postDataBuffer() ?? undefined },
     );
     await received(target.pathname, req.method(), response);

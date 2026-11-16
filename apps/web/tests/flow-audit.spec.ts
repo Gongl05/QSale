@@ -1,6 +1,7 @@
+import { apiURL } from '../../../tests/environment';
 import { test, expect, type Page } from '@playwright/test';
 
-const api = 'http://127.0.0.1:19080/api/v1';
+const api = apiURL;
 async function account(page: Page) {
   let token = '';
   page.on('request', (request) => {
