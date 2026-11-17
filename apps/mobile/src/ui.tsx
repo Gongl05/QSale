@@ -204,6 +204,7 @@ export const styles = StyleSheet.create({
   },
   code: {
     fontSize: 25,
+    lineHeight: 34,
     letterSpacing: 3,
     fontFamily: 'Manrope_800ExtraBold',
     textAlign: 'center',
@@ -222,17 +223,25 @@ export function Screen({
   onRefresh,
   scroll = true,
   safeTop = false,
+  safeBottom = true,
 }: {
   children: ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
   scroll?: boolean;
   safeTop?: boolean;
+  /** Tab screens pass false: the tab bar already keeps content above the home indicator. */
+  safeBottom?: boolean;
 }) {
   const network = useNetInfo();
   return (
     <SafeAreaView
-      edges={safeTop ? ['top', 'left', 'right', 'bottom'] : ['left', 'right', 'bottom']}
+      edges={[
+        ...(safeTop ? (['top'] as const) : []),
+        'left',
+        'right',
+        ...(safeBottom ? (['bottom'] as const) : []),
+      ]}
       style={styles.screen}
     >
       {(network.isConnected === false || network.isInternetReachable === false) && (

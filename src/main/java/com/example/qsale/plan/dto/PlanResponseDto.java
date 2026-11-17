@@ -11,6 +11,7 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -27,9 +28,22 @@ public class PlanResponseDto {
     private Double budget;
     private LocalDate tentativeStartDate;
     private LocalDate tentativeEndDate;
+    private List<LocalDate> tentativeDates;
+    // The agreed day and place once the plan is confirmed (null while it is open).
+    private LocalDateTime agreedStartsAt;
+    private LocalDateTime agreedEndsAt;
+    private LocalDate agreedStartsOn;
+    private LocalDate agreedEndsOn;
+    private String agreedPlace;
+    private String agreedAddress;
     private String creatorName;
+    private String creatorNickname;
     private LocalDateTime createdAt;
     private ParticipantRole currentUserRole;
     private ParticipationStatus currentUserParticipationStatus;
+    private Long currentUserOriginAddressId;
+    // First people who joined (for the faces on a plan card) and how many joined in total.
+    private List<PlanMemberDto> members;
+    private int joinedCount;
     private int agreementVersion;
 }

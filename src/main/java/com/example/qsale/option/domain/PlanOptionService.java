@@ -11,6 +11,7 @@ import com.example.qsale.option.dto.OptionResponseDto;
 import com.example.qsale.option.events.PlaceOptionCreatedEvent;
 import com.example.qsale.option.infrastructure.PlanOptionRepository;
 import com.example.qsale.participant.domain.ParticipationStatus;
+import com.example.qsale.participant.domain.PlanParticipant;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
 import com.example.qsale.plan.domain.FeasibilityService;
 import com.example.qsale.plan.domain.Plan;
@@ -109,7 +110,7 @@ public class PlanOptionService {
     private List<Location> getOrigins(Long planId) {
         return participantRepository.findByPlanId(planId).stream()
                 .filter(participant -> participant.getStatus() == ParticipationStatus.JOINED)
-                .map(participant -> participant.getUser().getLocation())
+                .map(PlanParticipant::startingLocation)
                 .filter(Objects::nonNull)
                 .toList();
     }

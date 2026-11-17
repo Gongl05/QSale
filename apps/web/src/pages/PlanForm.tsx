@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import {
   canManagePlan,
+  formatDate,
   planSchema,
   planTypes,
   planTypeLabels,
@@ -91,7 +92,15 @@ export default function PlanForm() {
       <form
         className="surface plan-form"
         noValidate
-        onSubmit={handleSubmit(async (values) => {
+        onSubmit={handleSubmit(async (formValues) => {
+          // A date range chosen here replaces the specific days picked in the mobile app.
+          const values = {
+            ...formValues,
+            tentativeDates:
+              formValues.tentativeStartDate || formValues.tentativeEndDate
+                ? []
+                : (formValues.tentativeDates ?? []),
+          };
           try {
             const plan = await (editing
               ? api.updatePlan(planId, { ...values, version: editVersion.current })
@@ -189,6 +198,18 @@ export default function PlanForm() {
         <p className="form-hint">
           Las fechas son opcionales. Todos los horarios del plan se coordinan en hora de Lima.
         </p>
+        {Boolean(query.data?.tentativeDates?.length) && (
+          <p className="form-hint">
+            Este plan tiene días sueltos elegidos en la app:{' '}
+            {query.data!.tentativeDates!.map((day) => formatDate(day)).join(', ')}. Si eliges un
+            rango aquí, reemplazará esos días.
+          </p>
+        )}
+        {errors.tentativeDates?.message && (
+          <p role="alert" className="form-error">
+            {errors.tentativeDates.message}
+          </p>
+        )}
         {errors.root && (
           <p className="form-error" role="alert">
             {errors.root.message}

@@ -2,12 +2,15 @@ package com.example.qsale.plan.domain;
 
 import com.example.qsale.exceptions.InvalidOperationException;
 import com.example.qsale.exceptions.ConflictException;
+import com.example.qsale.option.domain.OptionType;
+import com.example.qsale.option.domain.PlanOption;
 import com.example.qsale.option.domain.PlanOptionService;
 import com.example.qsale.participant.domain.ParticipantRole;
 import com.example.qsale.participant.domain.ParticipationStatus;
 import com.example.qsale.participant.domain.PlanParticipant;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
 import com.example.qsale.plan.dto.PlanDetailDto;
+import com.example.qsale.plan.dto.PlanMemberDto;
 import com.example.qsale.plan.dto.PlanPageResponseDto;
 import com.example.qsale.plan.dto.PlanRequestDto;
 import com.example.qsale.plan.dto.PlanResponseDto;
@@ -30,7 +33,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,6 +68,7 @@ public class PlanService {
         User user = userService.getCurrentUser();
 
         Plan plan = modelMapper.map(dto, Plan.class);
+        plan.setTentativeDates(tentativeDays(dto));
         plan.setVersion(null);
         plan.setCreator(user);
         plan.setInviteCode(generateInviteCode());
@@ -87,8 +93,8 @@ public class PlanService {
                 : participantRepository.findByUserIdAndPlanIdIn(user.getId(), planIds).stream()
                 .collect(Collectors.toMap(participant -> participant.getPlan().getId(), Function.identity()));
         return new PlanPageResponseDto(
-                plans.map(plan -> withMembership(modelMapper.map(plan, PlanResponseDto.class),
-                        memberships.get(plan.getId()))).getContent(),
+                plans.map(plan -> withAgreement(withMembership(modelMapper.map(plan, PlanResponseDto.class),
+                        memberships.get(plan.getId())), plan)).getContent(),
                 plans.getNumber(), plans.getSize(), plans.getTotalElements(), plans.getTotalPages());
     }
 
@@ -109,7 +115,9 @@ public class PlanService {
         if (dto.getVersion() == null || !dto.getVersion().equals(plan.getVersion())) {
             throw new ConflictException("The plan changed. Reload its latest version before saving your draft");
         }
+        List<LocalDate> days = updatedTentativeDays(dto, plan);
         modelMapper.map(dto, plan);
+        plan.setTentativeDates(days);
         PlanDetailDto response = toDetail(planRepository.saveAndFlush(plan), userService.getCurrentUser().getId());
         eventPublisher.publishEvent(new PlanChangedEvent(this, planId));
         eventPublisher.publishEvent(new PlanUpdatedEvent(this, planId));
@@ -181,13 +189,63 @@ public class PlanService {
         PlanParticipant membership = plan.getParticipants().stream()
                 .filter(participant -> participant.getUser().getId().equals(userId))
                 .findFirst().orElse(null);
-        return withMembership(modelMapper.map(plan, PlanDetailDto.class), membership);
+        return withAgreement(withMembership(modelMapper.map(plan, PlanDetailDto.class), membership), plan);
     }
 
     private <T extends PlanResponseDto> T withMembership(T response, PlanParticipant membership) {
         response.setCurrentUserRole(membership == null ? null : membership.getRole());
         response.setCurrentUserParticipationStatus(membership == null ? null : membership.getStatus());
+        response.setCurrentUserOriginAddressId(membership == null || membership.getOriginAddress() == null
+                ? null : membership.getOriginAddress().getId());
         return response;
+    }
+
+    /** Copies the chosen day and place, so lists and calendars can show them without loading the options. */
+    private <T extends PlanResponseDto> T withAgreement(T response, Plan plan) {
+        List<PlanParticipant> joined = plan.getParticipants().stream()
+                .filter(participant -> participant.getStatus() == ParticipationStatus.JOINED)
+                .toList();
+        response.setJoinedCount(joined.size());
+        response.setMembers(joined.stream()
+                .limit(5)
+                .map(participant -> new PlanMemberDto(participant.getUser().getId(), participant.getUser().getName(),
+                        participant.getUser().getNickname(), participant.getUser().getAvatarVersion()))
+                .toList());
+        for (PlanOption option : plan.getOptions()) {
+            if (!option.isSelected()) {
+                continue;
+            }
+            if (option.getType() == OptionType.DATE) {
+                response.setAgreedStartsAt(option.getStartsAt());
+                response.setAgreedEndsAt(option.getEndsAt());
+                response.setAgreedStartsOn(option.getStartsOn());
+                response.setAgreedEndsOn(option.getEndsOn());
+            } else if (option.getType() == OptionType.PLACE) {
+                response.setAgreedPlace(option.getLabel());
+                response.setAgreedAddress(option.getLocation() == null ? null : option.getLocation().getAddress());
+            }
+        }
+        return response;
+    }
+
+    /**
+     * Clients that do not send tentativeDates (like older versions of the web app) keep the plan's
+     * days, unless they set a date range, which replaces them.
+     */
+    private List<LocalDate> updatedTentativeDays(PlanRequestDto dto, Plan plan) {
+        if (dto.getTentativeDates() != null) {
+            return tentativeDays(dto);
+        }
+        boolean hasRange = dto.getTentativeStartDate() != null || dto.getTentativeEndDate() != null;
+        return hasRange ? new ArrayList<>() : new ArrayList<>(plan.getTentativeDates());
+    }
+
+    private List<LocalDate> tentativeDays(PlanRequestDto dto) {
+        if (dto.getTentativeDates() == null) {
+            return new ArrayList<>();
+        }
+        return dto.getTentativeDates().stream().distinct().sorted()
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private Sort parseSort(String sort) {
@@ -221,6 +279,10 @@ public class PlanService {
         if (dto.getTentativeStartDate() != null && dto.getTentativeEndDate() != null
                 && dto.getTentativeEndDate().isBefore(dto.getTentativeStartDate())) {
             throw new InvalidOperationException("tentativeEndDate must be on or after tentativeStartDate");
+        }
+        boolean hasDays = dto.getTentativeDates() != null && !dto.getTentativeDates().isEmpty();
+        if (hasDays && (dto.getTentativeStartDate() != null || dto.getTentativeEndDate() != null)) {
+            throw new InvalidOperationException("Send either a tentative date range or specific tentative days, not both");
         }
     }
 }

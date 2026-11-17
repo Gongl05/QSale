@@ -2,16 +2,48 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Bienvenido a QSale</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Te damos la bienvenida a QSale</title>
     <style th:replace="~{email/layout-style :: style}"></style>
 </head>
 <body>
 <div class="card">
-    <p class="brand">QSale</p>
-    <h2>¡Hola, <span th:text="${name}">Ana</span>!</h2>
-    <p>Tu cuenta fue creada correctamente con el correo <strong th:text="${email}">ana@correo.com</strong>.</p>
-    <p>Ya puedes crear planes, invitar a tu grupo, votar fechas y lugares, y ver el semáforo de viabilidad de cada salida.</p>
-    <p class="muted">Si no creaste esta cuenta, puedes ignorar este correo.</p>
+    <table th:replace="~{email/layout-style :: header}"></table>
+
+    <h2>¡Hola, <span th:text="${name}">Ana</span>! Qué bueno tenerte aquí 🧡</h2>
+    <p class="lead">Gracias por unirte a QSale. Ya no hace falta que el «hay que juntarnos» se quede en el chat:
+        desde ahora tu grupo puede ponerse de acuerdo en un solo lugar.</p>
+
+    <p>Así de simple funciona:</p>
+    <table class="steps" role="presentation">
+        <tr>
+            <td class="dot"><span>1</span></td>
+            <td><strong>Propón la idea</strong> e invita a tu grupo con un enlace o un código.</td>
+        </tr>
+        <tr>
+            <td class="dot"><span>2</span></td>
+            <td><strong>Voten fechas y lugares.</strong> QSale les muestra qué le queda mejor a todos.</td>
+        </tr>
+        <tr>
+            <td class="dot"><span>3</span></td>
+            <td><strong>Cuando se completa el grupo, el plan sale.</strong> Sin perseguir a nadie por WhatsApp.</td>
+        </tr>
+    </table>
+
+    <p th:if="${webUrl}"><a class="button" th:href="${webUrl}" href="#">Crear mi primer plan</a></p>
+
+    <p class="signature">¡Nos vemos en el próximo plan!<br>El equipo de QSale</p>
+
+    <div class="note">
+        <p>Creaste tu cuenta con <strong th:text="${email}">ana@correo.com</strong>.</p>
+        <p>¿No fuiste tú? Es posible que alguien haya escrito tu correo por error.
+            <span th:if="${supportAddress}">Escríbenos a <a th:href="'mailto:' + ${supportAddress}" th:text="${supportAddress}" href="#">ayuda@qsale.app</a>
+                y daremos de baja la cuenta para que no recibas más mensajes.</span>
+            <span th:unless="${supportAddress}">No necesitas hacer nada: no te escribiremos de nuevo salvo que alguien te invite a un plan.</span>
+        </p>
+    </div>
 </div>
 </body>
 </html>

@@ -1,6 +1,7 @@
 package com.example.qsale.participant.application;
 
 import com.example.qsale.participant.domain.ParticipantService;
+import com.example.qsale.participant.dto.OriginRequestDto;
 import com.example.qsale.participant.dto.ParticipantInviteDto;
 import com.example.qsale.participant.dto.ParticipantResponseDto;
 import jakarta.validation.Valid;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,6 +41,12 @@ public class ParticipantController {
     @PatchMapping("/{planId}/participants/me")
     public ResponseEntity<ParticipantResponseDto> acceptInvitation(@PathVariable Long planId) {
         return ResponseEntity.ok(participantService.acceptInvitation(planId));
+    }
+
+    @PutMapping("/{planId}/participants/me/origin")
+    public ResponseEntity<ParticipantResponseDto> chooseOrigin(@PathVariable Long planId,
+                                                               @RequestBody OriginRequestDto dto) {
+        return ResponseEntity.ok(participantService.chooseOrigin(planId, dto));
     }
 
     @DeleteMapping("/{planId}/participants/{userId}")

@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, CalendarDays, Plus, Search, Ticket, UsersRound, Wallet } from 'lucide-react';
 import {
+  agreedDay,
+  displayName,
   planProgressLabel,
+  tentativeText,
   formatDate,
   formatMoney,
   planTypeLabels,
@@ -41,7 +44,9 @@ export function PlanCard({ plan }: { plan: Plan }) {
           <Link to={'/plans/' + plan.id}>{plan.name}</Link>
         </h2>
         <p className="plan-organizer">
-          {plan.currentUserRole === 'ORGANIZER' ? 'Organizado por ti' : 'Por ' + plan.creatorName}
+          {plan.currentUserRole === 'ORGANIZER'
+            ? 'Organizado por ti'
+            : 'Por ' + displayName(plan.creatorName, plan.creatorNickname)}
         </p>
         <dl>
           <div>
@@ -49,7 +54,9 @@ export function PlanCard({ plan }: { plan: Plan }) {
               <CalendarDays size={17} />
               Fecha
             </dt>
-            <dd>{formatDate(plan.tentativeStartDate)}</dd>
+            <dd>
+              {agreedDay(plan) ? 'Acordado: ' + formatDate(agreedDay(plan)) : tentativeText(plan)}
+            </dd>
           </div>
           <div>
             <dt>

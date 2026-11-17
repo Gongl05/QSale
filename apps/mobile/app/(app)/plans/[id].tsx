@@ -11,16 +11,22 @@ import {
   formatOptionDate,
   canManagePlan,
   commitmentLabels,
+  displayName,
   feasibilityLabels,
   formatDate,
   formatMoney,
   planStatusLabels,
+  tentativeText,
   type CommitmentStatus,
   type PlanOption,
 } from '@qsale/contracts';
 import { DateRecommendations, ReschedulePanel } from '../../../src/Coordination';
 import { api, useSession } from '../../../src/session';
-import { MapView, type MapPoint } from '../../../src/Map';
+import { MapView, openInMaps, type MapPoint } from '../../../src/Map';
+import { Avatar } from '../../../src/Avatar';
+import { OriginPicker } from '../../../src/OriginPicker';
+import { SaleStamp, useConfirmedHaptic } from '../../../src/SaleStamp';
+import { addPlanToCalendar, calendarTimes } from '../../../src/addToCalendar';
 import {
   Badge,
   Button,
@@ -116,6 +122,7 @@ export default function PlanDetail() {
     queryFn: ({ signal }) => api.geography(planId, signal),
     enabled,
   });
+  useConfirmedHaptic(query.data?.status);
   const accept = useAction(() => api.acceptInvitation(planId), 'Ya eres parte del grupo.');
   const vote = useAction(
     (option: PlanOption) => (option.hasVoted ? api.removeVote(option.id) : api.vote(option.id)),
@@ -191,10 +198,10 @@ export default function PlanDetail() {
       <Heading title={plan.name} description={plan.description ?? undefined} />
       <View style={styles.row}>
         <Badge good={plan.status === 'CLOSED'}>{planStatusLabels[plan.status]}</Badge>
-        <Text style={styles.muted}>Por {plan.creatorName}</Text>
+        <Text style={styles.muted}>Por {displayName(plan.creatorName, plan.creatorNickname)}</Text>
       </View>
       <Text style={styles.subtitle}>
-        {formatDate(plan.tentativeStartDate)} · {formatMoney(plan.budget)} estimados · Mínimo{' '}
+        {tentativeText(plan)} · {formatMoney(plan.budget)} estimados · Mínimo{' '}
         {plan.minParticipants}
       </Text>
       <View style={styles.row}>
@@ -248,7 +255,10 @@ export default function PlanDetail() {
       )}
       {plan.status === 'CLOSED' && (
         <View style={styles.surface}>
-          <Text style={styles.heading}>Acuerdo vigente</Text>
+          <View style={styles.between}>
+            <Text style={styles.heading}>Acuerdo vigente</Text>
+            <SaleStamp />
+          </View>
           {options.data
             ?.filter((option) => option.selected)
             .map((option) => (
@@ -256,6 +266,20 @@ export default function PlanDetail() {
                 {option.type === 'DATE' ? formatOptionDate(option) : option.label}
               </Text>
             ))}
+          {plan.agreedAddress ? <Text style={styles.muted}>{plan.agreedAddress}</Text> : null}
+          {calendarTimes(plan) && (
+            <Button
+              variant="secondary"
+              icon="calendar"
+              onPress={() =>
+                void addPlanToCalendar(plan).catch(() =>
+                  toast('No pudimos abrir tu calendario.', true),
+                )
+              }
+            >
+              Agregar a mi calendario
+            </Button>
+          )}
           <Text>
             Si alguien no puede asistir, el día y el lugar se conservan. Solo quien organiza
             puede aplicar una reprogramación aprobada o reabrir el plan.
@@ -400,8 +424,17 @@ export default function PlanDetail() {
                     <Text>
                       {option.type === 'DATE'
                         ? formatOptionDate(option)
-                        : (option.location?.address ?? 'Ubicación en el mapa')}
+                        : option.location?.address || 'Lugar marcado en el mapa'}
                     </Text>
+                    {option.type === 'PLACE' && option.location && (
+                      <Button
+                        variant="quiet"
+                        icon="map-pin"
+                        onPress={() => openInMaps(option.location!, option.label)}
+                      >
+                        Ver dónde queda
+                      </Button>
+                    )}
                     {option.type === 'PLACE' && (
                       <Text style={styles.muted}>
                         {option.estimateStatus === 'PENDING'
@@ -413,7 +446,7 @@ export default function PlanDetail() {
                     )}
                     <Text style={styles.muted}>
                       {option.voteCount} {option.voteCount === 1 ? 'voto' : 'votos'} · Por{' '}
-                      {option.proposedByName}
+                      {displayName(option.proposedByName, option.proposedByNickname)}
                     </Text>
                     <View style={styles.row}>
                       {contribute && (
@@ -491,13 +524,19 @@ export default function PlanDetail() {
               items.map((item) => (
                 <View style={styles.surface} key={item.id}>
                   <View style={styles.row}>
-                    <View style={styles.avatar}>
-                      <Text style={{ fontFamily: 'Manrope_800ExtraBold', color: '#8B431D' }}>
-                        {item.userName.slice(0, 1).toUpperCase()}
-                      </Text>
-                    </View>
+                    <Avatar
+                      userId={item.userId}
+                      version={item.userAvatarVersion}
+                      name={item.userName}
+                      size={40}
+                    />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.subheading}>{item.userName}</Text>
+                      <Text style={styles.subheading}>
+                        {displayName(item.userName, item.userNickname)}
+                      </Text>
+                      {item.userNickname ? (
+                        <Text style={styles.muted}>{item.userName}</Text>
+                      ) : null}
                       <Text style={styles.muted}>
                         {item.role === 'ORGANIZER'
                           ? 'Organiza el plan'
@@ -571,7 +610,9 @@ export default function PlanDetail() {
               items.length ? (
                 items.map((item) => (
                   <View style={styles.surface} key={item.id}>
-                    <Text style={styles.subheading}>{item.userName}</Text>
+                    <Text style={styles.subheading}>
+                      {displayName(item.userName, item.userNickname)}
+                    </Text>
                     <Text>
                       {formatDate(item.availableDate)} ·{' '}
                       {item.startTime
@@ -624,9 +665,7 @@ export default function PlanDetail() {
                     Añadan ubicaciones de referencia o propongan un lugar para empezar.
                   </EmptyState>
                 )}
-                <Button variant="secondary" onPress={() => router.push('/profile')}>
-                  Actualizar mi ubicación
-                </Button>
+                <OriginPicker plan={plan} />
               </>
             )}
           </Section>

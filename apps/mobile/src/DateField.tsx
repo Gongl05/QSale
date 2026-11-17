@@ -28,6 +28,8 @@ export function DateField({
   mode = 'date',
   error,
   optional = true,
+  maximumDate,
+  formatValue = formatDate,
 }: {
   label: string;
   value: string;
@@ -35,6 +37,8 @@ export function DateField({
   mode?: 'date' | 'time';
   error?: string;
   optional?: boolean;
+  maximumDate?: Date;
+  formatValue?: (value: string) => string;
 }) {
   const [open, setOpen] = useState(false),
     [draft, setDraft] = useState(new Date());
@@ -55,6 +59,7 @@ export function DateField({
       mode={mode}
       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
       timeZoneName="America/Lima"
+      maximumDate={maximumDate}
       locale="es-PE"
       themeVariant="light"
       textColor={colors.ink}
@@ -80,7 +85,7 @@ export function DateField({
       >
         {value
           ? mode === 'date'
-            ? formatDate(value)
+            ? formatValue(value)
             : value
           : mode === 'date'
             ? 'Elegir fecha'

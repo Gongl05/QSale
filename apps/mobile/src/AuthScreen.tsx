@@ -39,7 +39,10 @@ export default function AuthScreen({ registering = false }: { registering?: bool
       >
         <View style={styles.row}>
           <Image source={require('../assets/qsale.png')} style={{ width: 45, height: 45 }} />
-          <Text style={{ fontSize: 30, fontFamily: 'Manrope_800ExtraBold' }}>QSale.</Text>
+          {/* lineHeight must grow with the font size; the inherited 25 clipped the top of the letters. */}
+          <Text style={{ fontSize: 30, lineHeight: 38, fontFamily: 'Manrope_800ExtraBold' }}>
+            QSale.
+          </Text>
         </View>
         <Text style={[styles.title, { fontSize: 33, lineHeight: 40 }]}>
           Ese “hay que hacer algo” sí va a salir.

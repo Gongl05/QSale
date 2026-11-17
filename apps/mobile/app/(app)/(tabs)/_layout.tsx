@@ -34,6 +34,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Calendario',
+          tabBarIcon: ({ color, size }) => (
+            <Feather
+              name="grid"
+              color={typeof color === 'string' ? color : colors.muted}
+              size={size}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
           title: 'Notificaciones',

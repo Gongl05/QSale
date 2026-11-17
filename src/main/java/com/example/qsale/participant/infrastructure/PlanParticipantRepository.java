@@ -3,6 +3,8 @@ package com.example.qsale.participant.infrastructure;
 import com.example.qsale.participant.domain.ParticipationStatus;
 import com.example.qsale.participant.domain.PlanParticipant;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,4 +24,10 @@ public interface PlanParticipantRepository extends JpaRepository<PlanParticipant
     long countByPlanId(Long planId);
 
     long countByPlanIdAndStatus(Long planId, ParticipationStatus status);
+
+    List<PlanParticipant> findByOriginAddressId(Long originAddressId);
+
+    @Query("select count(mine) > 0 from PlanParticipant mine, PlanParticipant theirs "
+            + "where mine.plan = theirs.plan and mine.user.id = :userId and theirs.user.id = :otherUserId")
+    boolean shareAPlan(@Param("userId") Long userId, @Param("otherUserId") Long otherUserId);
 }

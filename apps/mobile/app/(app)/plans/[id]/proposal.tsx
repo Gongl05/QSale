@@ -157,7 +157,7 @@ export default function Proposal() {
               return;
             }
             if (type === 'PLACE' && !locationSchema.safeParse(location).success) {
-              setError('Elige una ubicación válida.');
+              setError('Busca la dirección del lugar o márcalo en el mapa.');
               return;
             }
             action.mutate({

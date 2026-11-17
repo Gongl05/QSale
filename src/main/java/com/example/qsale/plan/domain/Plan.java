@@ -7,7 +7,9 @@ import com.example.qsale.option.domain.PlanOption;
 import com.example.qsale.participant.domain.PlanParticipant;
 import com.example.qsale.user.domain.User;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -19,6 +21,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.Getter;
@@ -68,6 +71,13 @@ public class Plan {
     private LocalDate tentativeStartDate;
 
     private LocalDate tentativeEndDate;
+
+    // Specific candidate days, used instead of the start/end range when the group has a few days in mind.
+    @ElementCollection
+    @CollectionTable(name = "plan_tentative_dates", joinColumns = @JoinColumn(name = "plan_id"))
+    @Column(name = "tentative_date", nullable = false)
+    @OrderBy
+    private List<LocalDate> tentativeDates = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -34,6 +34,8 @@ export function createApp(config: Config) {
     next();
   });
   app.use(cookieParser());
+  // Profile pictures travel as base64 JSON (the app shrinks them first); every other body stays small.
+  app.use('/backend/api/v1/users/me/avatar', express.json({ limit: '2mb' }));
   app.use(express.json({ limit: '64kb' }));
   app.use(['/session', '/backend'], (req, res, next) => {
     res.set('Cache-Control', 'no-store');
@@ -143,6 +145,12 @@ export function createApp(config: Config) {
       res.status(result.status);
       if (result.status === 204) {
         res.end();
+        return;
+      }
+      // Profile pictures are the only binary responses; pass the bytes through untouched.
+      const type = result.headers.get('content-type') ?? '';
+      if (/^image\/(jpeg|png|webp)$/.test(type.split(';')[0].trim())) {
+        res.type(type).send(Buffer.from(await result.arrayBuffer()));
         return;
       }
       res.type('application/json').send(await result.text());

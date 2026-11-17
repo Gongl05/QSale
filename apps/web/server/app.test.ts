@@ -104,3 +104,40 @@ it('can finish logout when there is no remaining refresh cookie', async () => {
   expect(result.status).toBe(204);
   expect(upstream).not.toHaveBeenCalled();
 });
+it('passes profile pictures through as bytes', async () => {
+  const { app, upstream } = setup();
+  const picture = new Uint8Array([137, 80, 78, 71, 1, 2, 3]);
+  upstream.mockResolvedValue(
+    new Response(picture, { status: 200, headers: { 'Content-Type': 'image/png' } }),
+  );
+  const result = await request(app)
+    .get('/backend/api/v1/users/7/avatar?v=1')
+    .set('Authorization', 'Bearer access')
+    .buffer(true)
+    .parse((response, done) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () => done(null, Buffer.concat(chunks)));
+    });
+  expect(result.status).toBe(200);
+  expect(result.headers['content-type']).toBe('image/png');
+  expect([...(result.body as Buffer)]).toEqual([...picture]);
+});
+it('accepts a profile picture upload larger than other request bodies', async () => {
+  const { app, upstream } = setup();
+  upstream.mockResolvedValue(new Response(JSON.stringify({ id: 7 }), { status: 200 }));
+  const data = 'a'.repeat(200_000);
+  const picture = await request(app)
+    .put('/backend/api/v1/users/me/avatar')
+    .set('Origin', origin)
+    .send({ contentType: 'image/jpeg', data });
+  expect(picture.status).toBe(200);
+  expect(JSON.parse(upstream.mock.calls[0][1]!.body as string).data).toHaveLength(200_000);
+  const other = await request(app)
+    .put('/backend/api/v1/users/me/profile')
+    .set('Origin', origin)
+    .send({ name: 'a'.repeat(200_000) });
+  // Rejected by the small body limit before reaching the API.
+  expect(other.status).toBeGreaterThanOrEqual(400);
+  expect(upstream).toHaveBeenCalledTimes(1);
+});

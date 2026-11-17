@@ -37,7 +37,20 @@
           "locationWhenInUsePermission": "QSale usa tu ubicación solo cuando la solicitas, para ayudar a elegir un punto de encuentro."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "QSale usa tu calendario solo cuando eliges agregar un plan confirmado."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "QSale usa tus fotos solo para la foto de perfil que eliges.",
+          "cameraPermission": "QSale usa la cámara para tomar tu foto de perfil y leer códigos QR de invitación."
+        }
+      ]
     ],
     "extra": {
       "eas": {

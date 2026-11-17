@@ -49,7 +49,8 @@ class EmailServiceTest {
         when(templateEngine.process(eq("email/welcome"), any(Context.class))).thenReturn("<p>Hi</p>");
 
         EmailService service = new EmailService(mailSender, templateEngine,
-                "QSale <onboarding@resend.dev>", "test-key", builder.build());
+                "QSale <onboarding@resend.dev>", "test-key", builder.build(),
+                "http://localhost:8080", "", "");
 
         assertTrue(service.sendHtmlEmail("user@example.com", "Welcome", "email/welcome", Map.of()));
         server.verify();
@@ -62,7 +63,8 @@ class EmailServiceTest {
         server.expect(requestTo("https://api.resend.test/emails")).andRespond(withServerError());
         when(templateEngine.process(eq("email/welcome"), any(Context.class))).thenReturn("<p>Hi</p>");
         EmailService service = new EmailService(mailSender, templateEngine,
-                "QSale <onboarding@resend.dev>", "test-key", builder.build());
+                "QSale <onboarding@resend.dev>", "test-key", builder.build(),
+                "http://localhost:8080", "", "");
 
         assertFalse(service.sendHtmlEmail("user@example.com", "Welcome", "email/welcome", Map.of()));
         server.verify();
@@ -74,7 +76,8 @@ class EmailServiceTest {
         when(mailSender.createMimeMessage()).thenReturn(message);
         when(templateEngine.process(eq("email/welcome"), any(Context.class))).thenReturn("<p>Hi</p>");
         EmailService service = new EmailService(mailSender, templateEngine,
-                "QSale <onboarding@resend.dev>", "", RestClient.create());
+                "QSale <onboarding@resend.dev>", "", RestClient.create(),
+                "http://localhost:8080", "", "");
 
         assertTrue(service.sendHtmlEmail("user@example.com", "Welcome", "email/welcome", Map.of()));
         verify(mailSender).send(message);

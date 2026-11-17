@@ -157,6 +157,22 @@
       "key": "backgroundJobId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "myUserId",
+      "value": ""
+    },
+    {
+      "key": "addressId",
+      "value": ""
+    },
+    {
+      "key": "tentativeDayEarly",
+      "value": ""
+    },
+    {
+      "key": "tentativeDayLate",
+      "value": ""
     }
   ],
   "item": [
@@ -4597,6 +4613,355 @@
               "body": "{\n  \"agreementVersion\": 3,\n  \"budget\": 60.0,\n  \"closedAt\": null,\n  \"createdAt\": \"2026-11-15T19:28:04.423677\",\n  \"creatorId\": 2,\n  \"creatorName\": \"Ana Torres\",\n  \"currentUserParticipationStatus\": \"JOINED\",\n  \"currentUserRole\": \"ORGANIZER\",\n  \"description\": \"Salida del grupo después de parciales\",\n  \"feasibilityScore\": 50,\n  \"feasibilityStatus\": \"TO_BE_DEFINED\",\n  \"id\": 1,\n  \"inviteCode\": \"11DAD266\",\n  \"minParticipants\": 2,\n  \"name\": \"Cena viernes\",\n  \"status\": \"OPEN\",\n  \"tentativeEndDate\": \"2026-12-01\",\n  \"tentativeStartDate\": \"2026-12-01\",\n  \"type\": \"DINNER\",\n  \"version\": 3\n}"
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "9.7. Perfil, direcciones y días sueltos",
+      "item": [
+        {
+          "id": "qsale-970",
+          "name": "Actualizar perfil completo (organizador)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Guarda el apodo\", () => pm.expect(json.nickname).to.eql(\"Anita\"));",
+                  "pm.collectionVariables.set(\"myUserId\", json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me/profile",
+            "description": "Edita apodo, apellido, teléfono, fecha de nacimiento y género. El correo no se puede cambiar. Los nombres solo aceptan letras.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana\",\n  \"surname\": \"Torres\",\n  \"nickname\": \"Anita\",\n  \"phone\": \"+51 987654321\",\n  \"birthDate\": \"2004-02-01\",\n  \"gender\": \"FEMALE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "qsale-971",
+          "name": "400 - Nombre con números",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me/profile",
+            "description": "Los nombres solo aceptan letras, espacios, apóstrofos y guiones.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"R2D2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "qsale-972",
+          "name": "Subir foto de perfil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Tiene versión de foto\", () => pm.expect(pm.response.json().avatarVersion).to.be.a(\"number\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me/avatar",
+            "description": "Recibe la imagen en base64 (JPEG, PNG o WebP). avatarVersion cambia en cada foto nueva para refrescar las copias en caché.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentType\": \"image/png\",\n  \"data\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "qsale-973",
+          "name": "Ver foto de perfil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Es una imagen\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"image/png\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/{{myUserId}}/avatar",
+            "description": "Solo la ven la propia persona y quienes comparten un plan con ella; para el resto responde 404."
+          }
+        },
+        {
+          "id": "qsale-974",
+          "name": "Guardar dirección (Oficina)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"addressId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me/addresses",
+            "description": "Guarda un lugar desde donde sueles salir. La primera dirección, o la que se marque como main, es la principal y se copia a la ubicación del perfil.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Oficina\",\n  \"type\": \"WORK\",\n  \"favorite\": true,\n  \"main\": false,\n  \"location\": {\n    \"latitude\": -12.0931,\n    \"longitude\": -77.0465,\n    \"address\": \"Av. Javier Prado Este 123\",\n    \"district\": \"San Isidro\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "qsale-975",
+          "name": "Listar mis direcciones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Incluye la oficina\", () => pm.expect(pm.response.json().some(a => a.label === \"Oficina\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me/addresses",
+            "description": "Devuelve primero la principal y luego las destacadas."
+          }
+        },
+        {
+          "id": "qsale-976",
+          "name": "Salir desde la oficina en este plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Usa la oficina\", () => pm.expect(String(pm.response.json().originAddressId)).to.eql(String(pm.collectionVariables.get(\"addressId\"))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans/{{planId}}/participants/me/origin",
+            "description": "Elige desde qué dirección guardada sale la persona en este plan; los tiempos de viaje y el punto medio la usan. addressId null vuelve a la dirección principal.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": {{addressId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "qsale-977",
+          "name": "Crear plan con días sueltos",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);",
+                  "pm.collectionVariables.set(\"tentativeDayEarly\", day(7));",
+                  "pm.collectionVariables.set(\"tentativeDayLate\", day(14));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Guarda dos días ordenados\", () => pm.expect(json.tentativeDates).to.eql([pm.collectionVariables.get(\"tentativeDayEarly\"), pm.collectionVariables.get(\"tentativeDayLate\")]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans",
+            "description": "En lugar de un rango, el plan puede tener días puntuales (hasta 31). Se guardan ordenados y sin repetir.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Viaje de promo\",\n  \"type\": \"TRIP\",\n  \"minParticipants\": 3,\n  \"tentativeDates\": [\n    \"{{tentativeDayLate}}\",\n    \"{{tentativeDayEarly}}\",\n    \"{{tentativeDayLate}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "qsale-978",
+          "name": "400 - Rango y días sueltos a la vez",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/plans",
+            "description": "Se envía un rango o días sueltos, no ambos.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Viaje de promo\",\n  \"type\": \"TRIP\",\n  \"minParticipants\": 3,\n  \"tentativeStartDate\": \"{{tentativeDayEarly}}\",\n  \"tentativeDates\": [\n    \"{{tentativeDayLate}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "qsale-979",
+          "name": "Eliminar dirección",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/me/addresses/{{addressId}}",
+            "description": "Los planes que salían desde esta dirección vuelven a la principal. Si era la principal, otra guardada toma su lugar."
+          }
         }
       ]
     },

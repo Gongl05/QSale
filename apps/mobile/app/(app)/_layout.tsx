@@ -19,9 +19,15 @@ export default function AppLayout() {
         headerTintColor: colors.ink,
         headerTitleStyle: { fontFamily: 'Manrope_800ExtraBold' },
         contentStyle: { backgroundColor: colors.background },
+        // Only the arrow. If iOS ignores the display mode, it shows "Atrás" instead of the route name "(tabs)".
+        headerBackButtonDisplayMode: 'minimal',
+        headerBackTitle: 'Atrás',
       }}
     >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Inicio' }} />
+      <Stack.Screen name="account" options={{ title: 'Editar perfil' }} />
+      <Stack.Screen name="addresses/index" options={{ title: 'Mis direcciones' }} />
+      <Stack.Screen name="addresses/[id]" options={{ title: 'Dirección' }} />
       <Stack.Screen name="plans/[id]" options={{ title: 'El plan' }} />
       <Stack.Screen name="plans/new" options={{ title: 'Crear plan' }} />
       <Stack.Screen name="plans/[id]/edit" options={{ title: 'Editar plan' }} />

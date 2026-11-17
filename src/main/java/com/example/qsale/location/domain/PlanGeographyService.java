@@ -3,6 +3,7 @@ package com.example.qsale.location.domain;
 import com.example.qsale.location.dto.MidpointDto;
 import com.example.qsale.location.dto.PlanGeographyDto;
 import com.example.qsale.participant.domain.ParticipationStatus;
+import com.example.qsale.participant.domain.PlanParticipant;
 import com.example.qsale.participant.infrastructure.PlanParticipantRepository;
 import com.example.qsale.plan.domain.PlanAccessService;
 import com.example.qsale.user.domain.UserService;
@@ -29,7 +30,7 @@ public class PlanGeographyService {
         planAccessService.getPlanAsMember(planId, userService.getCurrentUser());
         List<Location> origins = participantRepository.findByPlanId(planId).stream()
                 .filter(participant -> participant.getStatus() == ParticipationStatus.JOINED)
-                .map(participant -> participant.getUser().getLocation())
+                .map(PlanParticipant::startingLocation)
                 .filter(Objects::nonNull)
                 .toList();
         long joined = participantRepository.countByPlanIdAndStatus(planId, ParticipationStatus.JOINED);

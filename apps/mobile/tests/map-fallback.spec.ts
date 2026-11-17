@@ -11,7 +11,7 @@ test('the native map document reports a failed provider script without a blank o
   await page.route('https://unpkg.com/**', (route) => route.abort('failed'));
   await page.setContent(buildMapDocument([], null, true));
   await expect(page.getByRole('status')).toHaveText(
-    'No pudimos cargar el mapa. Revisa tu conexión o usa las coordenadas.',
+    'No pudimos cargar el mapa. Revisa tu conexión; igual puedes buscar la dirección.',
   );
   expect(errors).toEqual([]);
 });
@@ -45,7 +45,7 @@ test('the native map document reports unavailable tiles and keeps labels as plai
     ),
   );
   await expect(page.getByRole('status')).toHaveText(
-    'No pudimos cargar el mapa. Revisa tu conexión o usa las coordenadas.',
+    'No pudimos cargar el mapa. Revisa tu conexión; igual puedes buscar la dirección.',
   );
   expect(errors).toEqual([]);
 });

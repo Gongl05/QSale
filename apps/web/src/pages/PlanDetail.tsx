@@ -21,9 +21,12 @@ import {
   formatOptionDate,
   canManagePlan,
   commitmentLabels,
+  displayName,
   formatDate,
   formatMoney,
+  googleCalendarUrl,
   planTypeLabels,
+  tentativeText,
   type CommitmentStatus,
   type PlanOption,
 } from '@qsale/contracts';
@@ -190,8 +193,7 @@ export default function PlanDetail() {
         <StatusBadge plan={plan} />
         <span>
           <CalendarDays size={17} />
-          {formatDate(plan.tentativeStartDate)}
-          {plan.tentativeEndDate && ' – ' + formatDate(plan.tentativeEndDate)}
+          {tentativeText(plan)}
         </span>
         <span>
           <Wallet size={17} />
@@ -201,7 +203,7 @@ export default function PlanDetail() {
           <UsersRound size={17} />
           Mínimo {plan.minParticipants}
         </span>
-        <span>Por {plan.creatorName}</span>
+        <span>Por {displayName(plan.creatorName, plan.creatorNickname)}</span>
       </div>
       {plan.currentUserParticipationStatus === 'INVITED' && plan.status === 'OPEN' && (
         <section className="invitation-banner">
@@ -226,6 +228,20 @@ export default function PlanDetail() {
                 </strong>
               </p>
             ))}
+          {plan.agreedAddress && <p>{plan.agreedAddress}</p>}
+          {googleCalendarUrl(plan) && (
+            <p>
+              <a
+                className="button secondary"
+                href={googleCalendarUrl(plan)!}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <CalendarDays size={18} />
+                Agregar a Google Calendar
+              </a>
+            </p>
+          )}
           <p>
             Si alguien no puede asistir, el día y el lugar se conservan. Solo quien organiza
             puede aplicar una reprogramación aprobada o reabrir el plan.
@@ -366,7 +382,7 @@ export default function PlanDetail() {
                                 : '¿Retirar del grupo?',
                               item.userId === user!.id
                                 ? 'Dejarás de ver este plan. Podrás volver a unirte con una invitación.'
-                                : `${item.userName} dejará de participar y sus respuestas se eliminarán.`,
+                                : `${displayName(item.userName, item.userNickname)} dejará de participar y sus respuestas se eliminarán.`,
                               'Confirmar',
                               () => api.removeParticipant(planId, item.userId),
                               item.userId === user!.id,
@@ -399,7 +415,7 @@ export default function PlanDetail() {
                           <div className="availability-row" key={item.id}>
                             <CalendarDays size={20} />
                             <div>
-                              <strong>{item.userName}</strong>
+                              <strong>{displayName(item.userName, item.userNickname)}</strong>
                               <p>
                                 {formatDate(item.availableDate)} ·{' '}
                                 {item.startTime

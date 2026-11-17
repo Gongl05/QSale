@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { CalendarDays, Check, MapPin, ThumbsUp, Trash2 } from 'lucide-react';
 import {
+  displayName,
   formatOptionDate,
   commitmentLabels,
   type CommitmentStatus,
@@ -8,6 +9,7 @@ import {
   type PlanOption,
 } from '@qsale/contracts';
 import { Button, ErrorState, Skeleton } from '../ui';
+import { Avatar } from '../Avatar';
 export function DataSection<T>({
   query,
   children,
@@ -46,9 +48,10 @@ export function ParticipantRow({
 }) {
   return (
     <div className="participant-row">
-      <span className="avatar">{item.userName.slice(0, 1).toUpperCase()}</span>
+      <Avatar userId={item.userId} version={item.userAvatarVersion} name={item.userName} />
       <div>
-        <strong>{item.userName}</strong>
+        <strong>{displayName(item.userName, item.userNickname)}</strong>
+        {item.userNickname && <small>{item.userName}</small>}
         <small>
           {item.role === 'ORGANIZER'
             ? 'Organiza el plan'
@@ -68,7 +71,7 @@ export function ParticipantRow({
       {canRemove && (
         <Button
           variant="quiet"
-          aria-label={'Retirar a ' + item.userName}
+          aria-label={'Retirar a ' + displayName(item.userName, item.userNickname)}
           busy={busy}
           onClick={onRemove}
         >
@@ -135,7 +138,7 @@ export function OptionCard({
       <div className="option-footer">
         <span>
           {option.voteCount} {option.voteCount === 1 ? 'voto' : 'votos'} · Por{' '}
-          {option.proposedByName}
+          {displayName(option.proposedByName, option.proposedByNickname)}
         </span>
         <div className="actions">
           {canDelete && (

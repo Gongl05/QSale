@@ -2,12 +2,14 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>Invitación a un plan</title>
     <style th:replace="~{email/layout-style :: style}"></style>
 </head>
 <body>
 <div class="card">
-    <p class="brand">QSale</p>
+    <table th:replace="~{email/layout-style :: header}"></table>
     <h2>Te invitaron a <span th:text="${planName}">Cena viernes</span></h2>
     <p><strong th:text="${organizerName}">Ana</strong> quiere coordinar este plan contigo.</p>
     <p>Entra a QSale para aceptar la invitación, marcar tu disponibilidad y votar las opciones. También puedes unirte con este código:</p>

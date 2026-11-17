@@ -4,7 +4,10 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Feather from '@expo/vector-icons/Feather';
 import {
+  agreedDay,
+  displayName,
   planProgressLabel,
+  tentativeText,
   formatDate,
   formatMoney,
   planStatusLabels,
@@ -12,6 +15,8 @@ import {
   type PlanStatus,
 } from '@qsale/contracts';
 import { api } from '../../../src/session';
+import { planThemes } from '../../../src/planTheme';
+import { MemberFaces } from '../../../src/MemberFaces';
 import { useDebounced, usePagination } from '../../../src/hooks';
 import {
   Badge,
@@ -55,7 +60,11 @@ export default function Plans() {
       pager.onChange(Math.max(0, query.data.totalPages - 1), pager.size);
   }, [query.data]);
   return (
-    <Screen refreshing={query.isRefetching} onRefresh={() => void query.refetch()}>
+    <Screen
+      safeBottom={false}
+      refreshing={query.isRefetching}
+      onRefresh={() => void query.refetch()}
+    >
       <Heading
         title="Hagamos que salga."
         description="Tus ideas, tu gente y el próximo plan para recordar."
@@ -124,11 +133,19 @@ export default function Plans() {
             style={styles.planCard}
             onPress={() => router.push(('/plans/' + plan.id) as '/plans/[id]')}
           >
-            <View style={styles.planStrip}>
-              <Text style={{ color: '#8B4215', fontSize: 12, fontFamily: 'Manrope_700Bold' }}>
+            <View
+              style={[styles.planStrip, { backgroundColor: planThemes[plan.type].background }]}
+            >
+              <Text
+                style={{
+                  color: planThemes[plan.type].color,
+                  fontSize: 13,
+                  fontFamily: 'Manrope_800ExtraBold',
+                }}
+              >
                 {planTypeLabels[plan.type]}
               </Text>
-              <Feather name="calendar" size={33} color="#8B4215" />
+              <Feather name={planThemes[plan.type].icon} size={30} color={planThemes[plan.type].color} />
             </View>
             <View style={styles.planBody}>
               <View style={styles.row}>
@@ -139,11 +156,15 @@ export default function Plans() {
               <Text style={styles.muted}>
                 {plan.currentUserRole === 'ORGANIZER'
                   ? 'Organizado por ti'
-                  : 'Por ' + plan.creatorName}
+                  : 'Por ' + displayName(plan.creatorName, plan.creatorNickname)}
               </Text>
               <View style={styles.statRow}>
                 <Feather name="calendar" size={15} color={colors.muted} />
-                <Text style={{ fontSize: 13 }}>{formatDate(plan.tentativeStartDate)}</Text>
+                <Text style={{ fontSize: 13, flex: 1 }}>
+                  {agreedDay(plan)
+                    ? 'Acordado: ' + formatDate(agreedDay(plan))
+                    : tentativeText(plan)}
+                </Text>
               </View>
               <View style={styles.statRow}>
                 <Feather name="credit-card" size={15} color={colors.muted} />
@@ -151,6 +172,7 @@ export default function Plans() {
                   Presupuesto estimado: {formatMoney(plan.budget)}
                 </Text>
               </View>
+              <MemberFaces members={plan.members ?? []} joinedCount={plan.joinedCount ?? 0} />
               <View style={styles.statRow}>
                 <Feather name="users" size={15} color={colors.muted} />
                 <Text style={{ fontSize: 13 }}>Mínimo {plan.minParticipants} personas</Text>

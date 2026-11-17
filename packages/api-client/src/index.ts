@@ -18,8 +18,11 @@ import type {
   PlanFilters,
   PlanInput,
   PlanOption,
+  ProfileInput,
   Reschedule,
   RescheduleInput,
+  SavedAddress,
+  SavedAddressInput,
   User,
 } from '@qsale/contracts';
 
@@ -178,6 +181,29 @@ export function createQSaleApi(http: AxiosInstance) {
     me: (signal?: AbortSignal) => read<User>('/users/me', undefined, signal),
     updateMe: (data: { name: string; location?: Location; removeLocation?: boolean }) =>
       send<User>('put', '/users/me', data),
+    updateProfile: (data: ProfileInput) => send<User>('put', '/users/me/profile', data),
+    updateAvatar: (data: { contentType: string; data: string }) =>
+      contextual(send<User>('put', '/users/me/avatar', data), {
+        400: 'La foto es muy pesada o no es una imagen válida. Prueba con otra.',
+      }),
+    deleteAvatar: () => send<User>('delete', '/users/me/avatar'),
+    avatar: async (userId: number, version: number, signal?: AbortSignal) =>
+      (
+        await http.get<Blob>(`/users/${userId}/avatar`, {
+          params: { v: version },
+          responseType: 'blob',
+          signal,
+        })
+      ).data,
+    addresses: (signal?: AbortSignal) =>
+      read<SavedAddress[]>('/users/me/addresses', undefined, signal),
+    createAddress: (data: SavedAddressInput) =>
+      send<SavedAddress>('post', '/users/me/addresses', data),
+    updateAddress: (id: number, data: SavedAddressInput) =>
+      send<SavedAddress>('put', '/users/me/addresses/' + id, data),
+    deleteAddress: (id: number) => send<void>('delete', '/users/me/addresses/' + id),
+    chooseOrigin: (planId: number, addressId: number | null) =>
+      send<Participant>('put', `/plans/${planId}/participants/me/origin`, { addressId }),
     plans: (params: PlanFilters, signal?: AbortSignal) =>
       read<Page<Plan>>('/plans', params, signal),
     plan: (id: number, signal?: AbortSignal) => read<PlanDetail>('/plans/' + id, undefined, signal),

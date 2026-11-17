@@ -29,6 +29,7 @@ public class OptionResponseDto {
     private Integer avgTravelMinutes;
     private boolean selected;
     private String proposedByName;
+    private String proposedByNickname;
     private long voteCount;
     private int score;
     private boolean hasVoted;

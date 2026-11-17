@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ApiError } from '@qsale/api-client';
 import {
@@ -12,7 +12,7 @@ import {
   planTypeLabels,
   type PlanInput,
 } from '@qsale/contracts';
-import { DateField } from './DateField';
+import { TentativeDatesPicker } from './Calendar';
 import { NumberField } from './NumberField';
 import { api, useSession } from './session';
 import {
@@ -45,9 +45,11 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
     handleSubmit,
     reset,
     setError,
+    setValue,
     formState: { errors, isSubmitting, dirtyFields },
   } = useForm<PlanInput>({
-    mode: 'onTouched',
+    // Validate while typing, so mistakes show next to the field instead of only after "Crear plan".
+    mode: 'onChange',
     resolver: zodResolver(planSchema),
     defaultValues: {
       name: '',
@@ -57,8 +59,30 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
       budget: null,
       tentativeStartDate: null,
       tentativeEndDate: null,
+      tentativeDates: [],
     },
   });
+  const [start, end, days] = useWatch({
+    control,
+    name: ['tentativeStartDate', 'tentativeEndDate', 'tentativeDates'],
+  });
+  const [invalidFields, setInvalidFields] = useState<string[]>([]);
+  const fieldLabels: Record<string, string> = {
+    name: 'nombre',
+    description: 'descripción',
+    minParticipants: 'mínimo de personas',
+    budget: 'presupuesto',
+    tentativeStartDate: 'fechas',
+    tentativeEndDate: 'fechas',
+    tentativeDates: 'fechas',
+  };
+  const showInvalid = (fields: FieldErrors<PlanInput>) =>
+    setInvalidFields([
+      ...new Set(Object.keys(fields).flatMap((key) => (fieldLabels[key] ? [fieldLabels[key]] : []))),
+    ]);
+  useEffect(() => {
+    if (invalidFields.length && !Object.keys(errors).length) setInvalidFields([]);
+  }, [errors, invalidFields.length]);
   const loadedPlan = useRef<number | null>(null);
   const editVersion = useRef<number | undefined>(undefined);
   const dirty = useRef(dirtyFields);
@@ -68,7 +92,11 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
       const keepDraft = loadedPlan.current === query.data.id && Object.keys(dirty.current).length > 0;
       if (!keepDraft) editVersion.current = query.data.version;
       reset(
-        { ...query.data, description: query.data.description ?? '' },
+        {
+          ...query.data,
+          description: query.data.description ?? '',
+          tentativeDates: query.data.tentativeDates ?? [],
+        },
         {
           keepErrors: true,
           keepDirtyValues:
@@ -170,30 +198,29 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
             />
           )}
         />
-        <Controller
-          control={control}
-          name="tentativeStartDate"
-          render={({ field, fieldState }) => (
-            <DateField
-              label="Fecha inicial tentativa"
-              value={field.value ?? ''}
-              onChange={(text) => field.onChange(text || null)}
-              error={fieldState.error?.message}
-            />
-          )}
+        <TentativeDatesPicker
+          value={{
+            tentativeStartDate: start ?? null,
+            tentativeEndDate: end ?? null,
+            tentativeDates: days ?? [],
+          }}
+          onChange={(next) => {
+            const options = { shouldDirty: true, shouldValidate: true };
+            setValue('tentativeStartDate', next.tentativeStartDate, options);
+            setValue('tentativeEndDate', next.tentativeEndDate, options);
+            setValue('tentativeDates', next.tentativeDates, options);
+          }}
+          error={
+            errors.tentativeStartDate?.message ??
+            errors.tentativeEndDate?.message ??
+            errors.tentativeDates?.message
+          }
         />
-        <Controller
-          control={control}
-          name="tentativeEndDate"
-          render={({ field, fieldState }) => (
-            <DateField
-              label="Fecha final tentativa"
-              value={field.value ?? ''}
-              onChange={(text) => field.onChange(text || null)}
-              error={fieldState.error?.message}
-            />
-          )}
-        />
+        {invalidFields.length > 0 && (
+          <Text accessibilityRole="alert" style={styles.error}>
+            {'Revisa ' + invalidFields.join(', ') + ': está marcado en rojo más arriba.'}
+          </Text>
+        )}
         {errors.root && (
           <Text accessibilityRole="alert" style={styles.error}>
             {errors.root.message}
@@ -202,17 +229,7 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
         <Button
           busy={isSubmitting}
           onPress={handleSubmit(async (values) => {
-            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-            if (
-              [values.tentativeStartDate, values.tentativeEndDate].some(
-                (value) => value && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < today),
-              )
-            ) {
-              setError('root', {
-                message: 'Escribe las fechas como AAAA-MM-DD y usa hoy o una fecha futura.',
-              });
-              return;
-            }
+            setInvalidFields([]);
             try {
               const plan = await (editing
                 ? api.updatePlan(planId, { ...values, version: editVersion.current })
@@ -232,7 +249,7 @@ export default function PlanForm({ editing = false }: { editing?: boolean }) {
               }
               setError('root', { message: (error as Error).message });
             }
-          })}
+          }, showInvalid)}
         >
           {editing ? 'Guardar cambios' : 'Crear plan'}
         </Button>

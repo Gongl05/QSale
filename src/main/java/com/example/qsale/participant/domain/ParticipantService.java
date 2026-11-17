@@ -1,5 +1,7 @@
 package com.example.qsale.participant.domain;
 
+import com.example.qsale.address.domain.SavedAddress;
+import com.example.qsale.address.infrastructure.SavedAddressRepository;
 import com.example.qsale.availability.infrastructure.AvailabilityRepository;
 import com.example.qsale.commitment.infrastructure.CommitmentResponseRepository;
 import com.example.qsale.exceptions.DuplicateResourceException;
@@ -7,6 +9,7 @@ import com.example.qsale.exceptions.ForbiddenException;
 import com.example.qsale.exceptions.InvalidOperationException;
 import com.example.qsale.exceptions.ResourceNotFoundException;
 import com.example.qsale.option.events.TravelEstimateRefreshRequestedEvent;
+import com.example.qsale.participant.dto.OriginRequestDto;
 import com.example.qsale.participant.dto.ParticipantInviteDto;
 import com.example.qsale.participant.dto.ParticipantResponseDto;
 import com.example.qsale.participant.events.ParticipantInvitedEvent;
@@ -34,6 +37,7 @@ import java.util.Locale;
 public class ParticipantService {
 
     private final PlanParticipantRepository participantRepository;
+    private final SavedAddressRepository addressRepository;
     private final VoteRepository voteRepository;
     private final AvailabilityRepository availabilityRepository;
     private final CommitmentResponseRepository commitmentRepository;
@@ -77,6 +81,23 @@ public class ParticipantService {
             throw new ForbiddenException("You have not been invited to plan " + planId);
         }
         return join(plan, user);
+    }
+
+    @PreAuthorize("@planAuthorization.isMember(#planId, authentication)")
+    @Transactional
+    public ParticipantResponseDto chooseOrigin(Long planId, OriginRequestDto dto) {
+        User user = userService.getCurrentUser();
+        PlanParticipant participant = participantRepository.findByPlanIdAndUserId(planId, user.getId())
+                .orElseThrow(() -> new ForbiddenException("You are not a participant of plan " + planId));
+        SavedAddress address = dto.getAddressId() == null ? null
+                : addressRepository.findByIdAndUserId(dto.getAddressId(), user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Address not found with id " + dto.getAddressId()));
+        participant.setOriginAddress(address);
+        participantRepository.save(participant);
+        if (participant.getPlan().isOpen()) {
+            eventPublisher.publishEvent(new TravelEstimateRefreshRequestedEvent(this, planId));
+        }
+        return toResponse(participant);
     }
 
     private ParticipantResponseDto join(Plan plan, User user) {

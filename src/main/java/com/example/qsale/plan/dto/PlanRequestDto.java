@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -45,4 +46,8 @@ public class PlanRequestDto {
 
     @FutureOrPresent
     private LocalDate tentativeEndDate;
+
+    // Specific days instead of a range. Send either the range or these days, not both.
+    @Size(max = 31)
+    private List<@NotNull @FutureOrPresent LocalDate> tentativeDates;
 }

@@ -16,7 +16,7 @@ export function buildMapDocument(
   ]).replaceAll('<', '\\u003c');
   return `<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0}body{background:#eeece6;font-family:sans-serif}#map-status{position:absolute;top:0;left:0;right:0;z-index:2000;background:#fff4e8;padding:12px;color:#603b20}#map-status:empty{display:none}</style></head><body><div id="map-status" role="status"></div><div id="map"></div><script>
 let mapFailed=false;
-function failMap(){if(mapFailed)return;mapFailed=true;document.getElementById('map-status').textContent='No pudimos cargar el mapa. Revisa tu conexión o usa las coordenadas.';window.ReactNativeWebView?.postMessage(JSON.stringify({error:'map-load'}));}
+function failMap(){if(mapFailed)return;mapFailed=true;document.getElementById('map-status').textContent='No pudimos cargar el mapa. Revisa tu conexión; igual puedes buscar la dirección.';window.ReactNativeWebView?.postMessage(JSON.stringify({error:'map-load'}));}
 const mapLoadTimer=setTimeout(failMap,12000);
 </script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="failMap()"></script><script>
 if(typeof L!=='undefined'){

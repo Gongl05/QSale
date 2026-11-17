@@ -2041,3 +2041,20 @@ td .button {
   top: 12px;
   right: 8px;
 }
+
+/* Profile picture row on the profile page. */
+.profile-photo {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.profile-photo .actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+img.avatar {
+  object-fit: cover;
+}

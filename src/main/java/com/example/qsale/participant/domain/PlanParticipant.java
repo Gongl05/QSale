@@ -1,5 +1,7 @@
 package com.example.qsale.participant.domain;
 
+import com.example.qsale.address.domain.SavedAddress;
+import com.example.qsale.location.domain.Location;
 import com.example.qsale.plan.domain.Plan;
 import com.example.qsale.user.domain.User;
 import jakarta.persistence.Column;
@@ -55,6 +57,10 @@ public class PlanParticipant {
 
     private LocalDateTime joinedAt;
 
+    // Saved address this participant starts from for this plan; null means their main address.
+    @ManyToOne(fetch = FetchType.LAZY)
+    private SavedAddress originAddress;
+
     public PlanParticipant(Plan plan, User user, ParticipantRole role) {
         this.plan = plan;
         this.user = user;
@@ -63,5 +69,10 @@ public class PlanParticipant {
 
     public boolean isOrganizer() {
         return role == ParticipantRole.ORGANIZER;
+    }
+
+    /** Where this participant starts from for travel estimates and the group midpoint. */
+    public Location startingLocation() {
+        return originAddress != null ? originAddress.getLocation() : user.getLocation();
     }
 }

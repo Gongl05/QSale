@@ -61,6 +61,10 @@ El resumen se apoya en los commits `063d5f2`, `a5641df`, `0cd19f7`, `1e6a305` y 
 | Reprogramación | Propuestas con sí/no, mayoría y mínimo de asistentes; solo quien organiza aplica el cambio |
 | Fechas recomendadas | Cruce de disponibilidad opcional, con coincidencia horaria y datos faltantes explícitos |
 | Notificaciones y correos | Invitación, cambios, mínimo alcanzado, cierre o cancelación |
+| Perfil | Apodo visible en los planes, apellido, teléfono, fecha de nacimiento, género y foto; el correo no se puede cambiar |
+| Direcciones guardadas | Casa, oficina u otros lugares; la principal es el punto de partida y en cada plan se puede elegir otra |
+| Días sueltos | Un plan puede proponer un rango de fechas o días específicos (hasta 31) |
+| Calendario | Vista mensual de planes confirmados y tentativos; un plan confirmado se agrega al calendario del teléfono o a Google Calendar |
 
 ### Tecnologías utilizadas
 
@@ -123,11 +127,15 @@ erDiagram
     USER ||--o{ RESCHEDULE_PROPOSAL : propone
     RESCHEDULE_PROPOSAL ||--o{ RESCHEDULE_VOTE : registra
     USER ||--o{ RESCHEDULE_VOTE : vota
+    USER ||--o{ SAVED_ADDRESS : guarda
+    SAVED_ADDRESS ||--|| LOCATION : ubica
+    PLAN_PARTICIPANT }o--o| SAVED_ADDRESS : sale_desde
+    USER ||--o| USER_AVATAR : tiene
 ```
 
 Las sesiones revocables, reprogramaciones y trabajos persistentes amplían el modelo inicial.
 
-`User` guarda identidad, rol y ubicación opcional. `Plan` mantiene el presupuesto, mínimo de asistentes, fechas, código de invitación, estado y semáforo. `PlanParticipant` relaciona usuarios con planes y diferencia organizador, invitado y miembro unido. `PlanOption` contiene fechas o lugares propuestos; un lugar se asocia a `Location`, que guarda dirección y coordenadas. `Vote`, `Availability` y `CommitmentResponse` registran las decisiones individuales. `Notification` persiste avisos, fecha de lectura y estado de envío. `RescheduleProposal` guarda una alternativa de acuerdo con su versión, día, hora opcional, rango de fechas, lugar y vencimiento; `RescheduleVote` conserva la respuesta sí/no única de cada integrante. La base incluye unicidad de email, código de invitación, voto por usuario/opción y compromiso por usuario/plan; las claves foráneas e índices sostienen integridad y consultas frecuentes. Los DTO y Bean Validation restringen rangos, longitud y formato antes de guardar.
+`User` guarda identidad, rol y ubicación opcional. `Plan` mantiene el presupuesto, mínimo de asistentes, fechas, código de invitación, estado y semáforo. `PlanParticipant` relaciona usuarios con planes y diferencia organizador, invitado y miembro unido. `PlanOption` contiene fechas o lugares propuestos; un lugar se asocia a `Location`, que guarda dirección y coordenadas. `Vote`, `Availability` y `CommitmentResponse` registran las decisiones individuales. `Notification` persiste avisos, fecha de lectura y estado de envío. `RescheduleProposal` guarda una alternativa de acuerdo con su versión, día, hora opcional, rango de fechas, lugar y vencimiento; `RescheduleVote` conserva la respuesta sí/no única de cada integrante. `SavedAddress` guarda los lugares desde donde sale cada usuario; la principal se copia a la ubicación del perfil y `PlanParticipant.originAddress` permite usar otra en un plan concreto. `UserAvatar` guarda la foto en su propia tabla para no cargar la imagen con cada usuario, y `Plan.tentativeDates` guarda los días sueltos. La base incluye unicidad de email, código de invitación, voto por usuario/opción y compromiso por usuario/plan; las claves foráneas e índices sostienen integridad y consultas frecuentes. Los DTO y Bean Validation restringen rangos, longitud y formato antes de guardar.
 
 ## 5. Manejo de errores
 
@@ -163,7 +171,7 @@ npm run dev:mobile
 
 La web abre en `http://127.0.0.1:5173`. Configura `API_URL=http://127.0.0.1:8080/api/v1` y `APP_ORIGIN` con el origen exacto. El puerto predeterminado 19080 corresponde a las pruebas aisladas. En el teléfono, `EXPO_PUBLIC_API_URL` debe ser accesible desde su red; `EXPO_PUBLIC_WEB_URL` define las invitaciones admitidas. Cámara y GPS se solicitan al usarlos; hay entrada manual.
 
-Variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `MAPS_API_KEY`, `RESEND_API_KEY`, `MAIL_FROM` y `PLANS_TIME_ZONE`. AWS usa `SPRING_DATASOURCE_URL` hacia RDS con TLS y `SHOW_SQL=false`. El backend emplea el Dockerfile raíz; la web, `apps/web/Dockerfile`, puerto 3001 y HTTPS.
+Variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `MAPS_API_KEY`, `RESEND_API_KEY`, `MAIL_FROM` y `PLANS_TIME_ZONE`. Para los correos: `PUBLIC_URL` (URL pública de la API, de donde se carga el logo; en Render se usa `RENDER_EXTERNAL_URL`), `APP_WEB_URL` (botón «Crear mi primer plan») y `MAIL_SUPPORT` (correo de ayuda que aparece si alguien no reconoce su registro); las dos últimas son opcionales. AWS usa `SPRING_DATASOURCE_URL` hacia RDS con TLS y `SHOW_SQL=false`. El backend emplea el Dockerfile raíz; la web, `apps/web/Dockerfile`, puerto 3001 y HTTPS.
 
 Validación: `./mvnw verify`, `npm run check`, `npm test`, `npm run build:web`, `npm run test:web` y `npm run test:mobile-form`. Los recorridos necesitan API temporal en 19080, PostgreSQL y correo local; nunca producción. Desde móvil, `npx expo-doctor` y `npx expo export --platform android --platform ios --output-dir dist` validan configuración y paquetes, sin certificar sensores, permisos o SecureStore físicos.
 

@@ -14,6 +14,7 @@ public class CommitmentResponseDto {
     private Long id;
     private Long userId;
     private String userName;
+    private String userNickname;
     private CommitmentStatus status;
     private String note;
     private LocalDateTime respondedAt;

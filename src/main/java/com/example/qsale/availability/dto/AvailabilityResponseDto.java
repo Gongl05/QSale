@@ -14,6 +14,7 @@ public class AvailabilityResponseDto {
     private Long id;
     private Long userId;
     private String userName;
+    private String userNickname;
     private LocalDate availableDate;
     private LocalTime startTime;
     private LocalTime endTime;

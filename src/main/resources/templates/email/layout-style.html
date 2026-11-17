@@ -1,10 +1,35 @@
 <style th:fragment="style">
-    body { margin: 0; padding: 24px; background: #f4f5f7; font-family: Arial, Helvetica, sans-serif; color: #1f2933; }
-    .card { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px; }
-    .brand { font-size: 22px; font-weight: bold; color: #4f46e5; margin: 0 0 16px; }
-    .code { display: inline-block; font-size: 20px; letter-spacing: 3px; font-weight: bold; background: #eef2ff; color: #3730a3; padding: 8px 16px; border-radius: 8px; }
-    .muted { color: #6b7280; font-size: 13px; margin-top: 24px; }
+    /* QSale colors: accent #C64B08, orange #FF8224, cream #FFF3DD, ink #1E293B, background #F9F8F5. */
+    body { margin: 0; padding: 24px 12px; background: #F9F8F5; font-family: 'Manrope', Arial, Helvetica, sans-serif; color: #1E293B; }
+    .card { max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px 28px; border: 1px solid #E7E5DF; }
+    .header td { vertical-align: middle; padding: 0; border: 0; }
+    .logo { display: block; width: 44px; height: 44px; border: 0; }
+    /* Orange that stays readable on light and on dark mail themes. */
+    .brand { font-size: 24px; font-weight: 800; color: #EE6F1A; padding-left: 10px !important; letter-spacing: -0.5px; }
+    h2 { font-size: 24px; line-height: 1.3; margin: 28px 0 12px; }
+    p { font-size: 15px; line-height: 1.6; margin: 0 0 14px; }
+    .lead { font-size: 16px; }
+    .steps { margin: 18px 0 22px; padding: 0; }
+    .steps td { padding: 10px 0; border: 0; vertical-align: top; font-size: 15px; line-height: 1.5; }
+    .steps .dot { width: 34px; }
+    .steps .dot span { display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 12px; background: #FFF3DD; color: #C64B08; font-weight: 800; font-size: 13px; }
+    .button { display: inline-block; background: #C64B08; color: #ffffff !important; text-decoration: none; font-weight: 700; font-size: 15px; padding: 13px 24px; border-radius: 12px; }
+    .code { display: inline-block; font-size: 20px; letter-spacing: 3px; font-weight: bold; background: #FFF3DD; color: #8B3C0C; padding: 8px 16px; border-radius: 8px; }
+    .note { margin-top: 28px; padding: 16px 18px; border-radius: 12px; background: #F9F8F5; border: 1px solid #E7E5DF; }
+    .note p { font-size: 13px; color: #626777; margin: 0 0 6px; }
+    .note p:last-child { margin-bottom: 0; }
+    .muted { color: #626777; font-size: 13px; margin-top: 24px; }
+    .signature { margin-top: 22px; }
+    a { color: #C64B08; }
     table { border-collapse: collapse; width: 100%; margin-top: 12px; }
-    td { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
-    td.label { color: #6b7280; width: 40%; }
+    td { padding: 8px 0; border-bottom: 1px solid #E7E5DF; }
+    td.label { color: #626777; width: 40%; }
 </style>
+
+<!-- Logo + name, shared by every email. The PNG has a transparent background so it works on dark themes too. -->
+<table th:fragment="header" class="header" role="presentation" style="width:auto;margin:0">
+    <tr>
+        <td><img class="logo" th:src="${logoUrl}" src="http://localhost:8080/email/qsale-logo.png" width="44" height="44" alt="QSale"></td>
+        <td class="brand">QSale</td>
+    </tr>
+</table>

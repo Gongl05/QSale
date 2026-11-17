@@ -33,7 +33,11 @@ export default function Notifications() {
       pager.update({ page: String(Math.max(1, query.data.totalPages)) });
   }, [query.data, pager.page]);
   return (
-    <Screen refreshing={query.isRefetching} onRefresh={() => void query.refetch()}>
+    <Screen
+      safeBottom={false}
+      refreshing={query.isRefetching}
+      onRefresh={() => void query.refetch()}
+    >
       <Heading
         title="Lo último de tu grupo"
         description={

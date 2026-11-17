@@ -85,7 +85,7 @@ public class NotificationService {
 
     public void sendWelcomeEmail(Long userId) {
         User user = userService.getUserById(userId);
-        queue.enqueue("EMAIL",new JobPayload(null,null,user.getEmail(),"Bienvenido a QSale","email/welcome",
+        queue.enqueue("EMAIL",new JobPayload(null,null,user.getEmail(),"¡Te damos la bienvenida a QSale!","email/welcome",
                 Map.of("name", user.getName(), "email", user.getEmail())));
     }
 

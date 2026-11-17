@@ -272,7 +272,7 @@ const router = createBrowserRouter([
           },
         ],
       },
-      { path: '/', element: <Navigate to="/plans" replace /> },
+      { path: '/', lazy: lazyPage(() => import('./pages/Landing')) },
       { path: '*', lazy: lazyPage(() => import('./pages/NotFound')) },
     ],
   },

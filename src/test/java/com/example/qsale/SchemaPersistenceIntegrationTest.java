@@ -38,7 +38,7 @@ class SchemaPersistenceIntegrationTest extends AbstractContainerBaseTest {
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void savesDataBeforeContextRestart() {
         assertEquals("validate", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
-        assertEquals("6", flyway.info().current().getVersion().getVersion());
+        assertEquals("7", flyway.info().current().getVersion().getVersion());
         userRepository.save(new User("Persistence check", EMAIL, "unused-hash", Role.USER));
         assertTrue(userRepository.existsByEmail(EMAIL));
     }

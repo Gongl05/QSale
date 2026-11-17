@@ -22,6 +22,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,6 +41,24 @@ public class User implements UserDetails {
 
     @Column(nullable = false, length = 100)
     private String name;
+
+    @Column(length = 100)
+    private String surname;
+
+    // How friends call this person; plans show it instead of the full name when present.
+    @Column(length = 30)
+    private String nickname;
+
+    @Column(length = 20)
+    private String phone;
+
+    private LocalDate birthDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Gender gender;
+
+    private Long avatarVersion;
 
     @Column(nullable = false, unique = true, length = 150)
     private String email;

@@ -23,13 +23,63 @@ export interface Location {
   district?: string | null;
 }
 
+export type Gender = 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
+export const genderLabels: Record<Gender, string> = {
+  MALE: 'Hombre',
+  FEMALE: 'Mujer',
+  OTHER: 'Otro',
+  PREFER_NOT_TO_SAY: 'Prefiero no decirlo',
+};
+
 export interface User {
   id: number;
   name: string;
+  surname?: string | null;
+  nickname?: string | null;
   email: string;
+  phone?: string | null;
+  birthDate?: string | null;
+  gender?: Gender | null;
+  avatarVersion?: number | null;
   role: 'USER' | 'ADMIN';
   createdAt: string;
   location: Location | null;
+}
+
+export interface ProfileInput {
+  name: string;
+  surname?: string | null;
+  nickname?: string | null;
+  phone?: string | null;
+  birthDate?: string | null;
+  gender?: Gender | null;
+}
+
+export type AddressType = 'HOME' | 'WORK' | 'OTHER';
+export const addressTypeLabels: Record<AddressType, string> = {
+  HOME: 'Casa',
+  WORK: 'Oficina',
+  OTHER: 'Otro',
+};
+export interface SavedAddress {
+  id: number;
+  label: string;
+  type: AddressType;
+  favorite: boolean;
+  main: boolean;
+  location: Location;
+}
+export interface SavedAddressInput {
+  label: string;
+  type: AddressType;
+  favorite: boolean;
+  main: boolean;
+  location: Location;
+}
+
+/** The name friends see in plans: the nickname when the person set one. */
+export function displayName(name: string, nickname?: string | null) {
+  return nickname?.trim() || name;
 }
 
 export interface Tokens {
@@ -57,10 +107,28 @@ export interface Plan {
   budget: number | null;
   tentativeStartDate: string | null;
   tentativeEndDate: string | null;
+  tentativeDates?: string[];
+  agreedStartsAt?: string | null;
+  agreedEndsAt?: string | null;
+  agreedStartsOn?: string | null;
+  agreedEndsOn?: string | null;
+  agreedPlace?: string | null;
+  agreedAddress?: string | null;
   creatorName: string;
+  creatorNickname?: string | null;
   createdAt: string;
   currentUserRole: ParticipantRole | null;
   currentUserParticipationStatus: ParticipationStatus | null;
+  currentUserOriginAddressId?: number | null;
+  members?: PlanMember[];
+  joinedCount?: number;
+}
+
+export interface PlanMember {
+  userId: number;
+  name: string;
+  nickname: string | null;
+  avatarVersion: number | null;
 }
 
 export interface PlanDetail extends Plan {
@@ -79,6 +147,7 @@ export interface PlanInput {
   budget?: number | null;
   tentativeStartDate?: string | null;
   tentativeEndDate?: string | null;
+  tentativeDates?: string[];
 }
 
 export interface Participant {
@@ -86,6 +155,9 @@ export interface Participant {
   planId: number;
   userId: number;
   userName: string;
+  userNickname?: string | null;
+  userAvatarVersion?: number | null;
+  originAddressId?: number | null;
   userEmail: string;
   role: ParticipantRole;
   status: ParticipationStatus;
@@ -107,6 +179,7 @@ export interface PlanOption {
   avgTravelMinutes: number | null;
   selected: boolean;
   proposedByName: string;
+  proposedByNickname?: string | null;
   voteCount: number;
   score: number;
   hasVoted: boolean;
@@ -130,6 +203,7 @@ export interface Availability {
   id: number;
   userId: number;
   userName: string;
+  userNickname?: string | null;
   availableDate: string;
   startTime: string | null;
   endTime: string | null;
@@ -144,6 +218,7 @@ export interface Commitment {
   id: number;
   userId: number;
   userName: string;
+  userNickname?: string | null;
   status: CommitmentStatus;
   note: string | null;
   respondedAt: string;
@@ -300,12 +375,25 @@ export const signInSchema = z.object({
   email,
   password: z.string().min(1, 'Escribe tu contraseña.'),
 });
-export const signUpSchema = z.object({
-  name: z
+// Letters (with accents and ñ) separated by single spaces, apostrophes or hyphens. No numbers or symbols.
+export const personNamePattern = /^[A-Za-zÀ-ÖØ-öø-ÿ]+(?:[ '-][A-Za-zÀ-ÖØ-öø-ÿ]+)*$/;
+const onlyLetters = 'Usa solo letras, sin números ni símbolos.';
+const personName = (min: number, max: number) =>
+  z
     .string()
     .trim()
-    .min(2, 'Escribe al menos dos caracteres.')
-    .max(100, 'Usa hasta 100 caracteres.'),
+    .min(min, min > 1 ? `Escribe al menos ${min} letras.` : 'Escríbelo.')
+    .max(max, `Usa hasta ${max} caracteres.`)
+    .regex(personNamePattern, onlyLetters);
+const optionalPersonName = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, `Usa hasta ${max} caracteres.`)
+    .refine((value) => !value || personNamePattern.test(value), onlyLetters);
+
+export const signUpSchema = z.object({
+  name: personName(2, 100),
   email,
   password: z
     .string()
@@ -328,6 +416,38 @@ export const locationSchema = z.object({
   longitude: z.number().min(-180).max(180),
   address: z.string().max(255).nullable().optional(),
   district: z.string().max(100).nullable().optional(),
+});
+
+export const profileSchema = z.object({
+  name: personName(2, 100),
+  surname: optionalPersonName(100),
+  nickname: optionalPersonName(30),
+  phone: z
+    .string()
+    .trim()
+    .refine((value) => !value || /^\+?[0-9 ]{6,19}$/.test(value), 'Escribe un número válido.'),
+  birthDate: z
+    .string()
+    .nullable()
+    .refine((value) => !value || (validDay(value) && value < todayInLima()), 'Elige una fecha pasada.'),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY']).nullable(),
+});
+export type ProfileForm = z.infer<typeof profileSchema>;
+
+export const addressSchema = z.object({
+  label: z.string().trim().min(1, 'Ponle un nombre, como Casa u Oficina.').max(40, 'Usa hasta 40 caracteres.'),
+  type: z.enum(['HOME', 'WORK', 'OTHER']),
+  favorite: z.boolean(),
+  main: z.boolean(),
+  location: z.object(
+    {
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+      address: z.string().max(255).nullable().optional(),
+      district: z.string().max(100).nullable().optional(),
+    },
+    { error: 'Busca la dirección o márcala en el mapa.' },
+  ),
 });
 
 export const planSchema = z
@@ -366,6 +486,14 @@ export const planSchema = z
       )
       .nullable()
       .optional(),
+    tentativeDates: z
+      .array(z.string())
+      .max(31, 'Elige hasta 31 días.')
+      .refine(
+        (days) => days.every((day) => validDay(day) && day >= todayInLima()),
+        'Los días deben ser hoy o futuros.',
+      )
+      .optional(),
   })
   .refine(
     (value) =>
@@ -401,6 +529,77 @@ export function formatDate(value: string | null | undefined, withTime = false) {
     month: 'short',
     ...(withTime ? ({ hour: 'numeric', minute: '2-digit' } as const) : {}),
   }).format(date);
+}
+
+/** Tentative dates as text: specific days ("21 nov., 28 nov. y 2 dic.") or a range ("21 nov. – 23 nov."). */
+export function tentativeText(plan: Pick<Plan, 'tentativeStartDate' | 'tentativeEndDate' | 'tentativeDates'>) {
+  const days = plan.tentativeDates ?? [];
+  if (days.length) {
+    const shown = days.slice(0, 3).map((day) => formatDate(day));
+    const rest = days.length - shown.length;
+    if (rest > 0) return shown.join(', ') + ` y ${rest} día${rest === 1 ? '' : 's'} más`;
+    return shown.length > 1 ? shown.slice(0, -1).join(', ') + ' o ' + shown.at(-1) : shown[0];
+  }
+  if (plan.tentativeStartDate && plan.tentativeEndDate && plan.tentativeEndDate !== plan.tentativeStartDate)
+    return formatDate(plan.tentativeStartDate) + ' – ' + formatDate(plan.tentativeEndDate);
+  return formatDate(plan.tentativeStartDate);
+}
+
+/** First day of the agreed date (yyyy-mm-dd in Lima), or null while there is no agreement. */
+export function agreedDay(plan: Pick<Plan, 'agreedStartsAt' | 'agreedStartsOn'>) {
+  return plan.agreedStartsOn ?? plan.agreedStartsAt?.slice(0, 10) ?? null;
+}
+
+export interface CalendarPlan {
+  name: string;
+  description?: string | null;
+  agreedStartsAt?: string | null;
+  agreedEndsAt?: string | null;
+  agreedStartsOn?: string | null;
+  agreedEndsOn?: string | null;
+  agreedPlace?: string | null;
+  agreedAddress?: string | null;
+}
+
+const limaInstant = (value: string) =>
+  new Date(value + (value.length === 10 ? 'T00:00:00' : '') + '-05:00');
+
+/** Start and end of the agreed date; all-day when the plan only agreed on days. Null without agreement. */
+export function calendarTimes(plan: CalendarPlan) {
+  if (plan.agreedStartsAt) {
+    const startDate = limaInstant(plan.agreedStartsAt);
+    const endDate = plan.agreedEndsAt
+      ? limaInstant(plan.agreedEndsAt)
+      : new Date(startDate.getTime() + 2 * 3_600_000);
+    return { startDate, endDate, allDay: false };
+  }
+  if (plan.agreedStartsOn) {
+    const startDate = limaInstant(plan.agreedStartsOn);
+    const endDate = new Date(
+      limaInstant(plan.agreedEndsOn ?? plan.agreedStartsOn).getTime() + 86_400_000,
+    );
+    return { startDate, endDate, allDay: true };
+  }
+  return null;
+}
+
+/** Google Calendar "new event" link with the plan filled in. */
+export function googleCalendarUrl(plan: CalendarPlan) {
+  const times = calendarTimes(plan);
+  if (!times) return null;
+  const stamp = (date: Date) =>
+    times.allDay
+      ? new Date(date.getTime() - 5 * 3_600_000).toISOString().slice(0, 10).replaceAll('-', '')
+      : date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: plan.name,
+    dates: stamp(times.startDate) + '/' + stamp(times.endDate),
+    details: plan.description || 'Plan coordinado en QSale.',
+    location: [plan.agreedPlace, plan.agreedAddress].filter(Boolean).join(', '),
+    ctz: 'America/Lima',
+  });
+  return 'https://calendar.google.com/calendar/render?' + params.toString();
 }
 
 export function canManagePlan(plan: Plan, user: User | null) {

@@ -16,6 +16,9 @@ public class ParticipantResponseDto {
     private Long planId;
     private Long userId;
     private String userName;
+    private String userNickname;
+    private Long userAvatarVersion;
+    private Long originAddressId;
     private String userEmail;
     private ParticipantRole role;
     private ParticipationStatus status;

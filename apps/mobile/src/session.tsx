@@ -61,6 +61,9 @@ async function refresh() {
   pendingRefresh = request;
   return request;
 }
+/** Current access token, for requests made outside axios (e.g. loading profile pictures). */
+export const currentAccessToken = () => tokens?.token ?? null;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: retryRead, staleTime: 30000 },
